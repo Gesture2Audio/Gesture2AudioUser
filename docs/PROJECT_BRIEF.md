@@ -95,6 +95,19 @@ Raw samples are stored under:
 G2A_Raw_Data/G2A
 ```
 
+Training data files:
+
+```text
+data/valid_samples.json
+data/training_samples_full.json
+```
+
+`data/valid_samples.json` is the compact manifest. It selects the approved valid ranges from the current `20260505_*.json` recording sequence.
+
+`data/training_samples_full.json` is the self-contained training file. It includes the same approved samples plus the embedded IMU frame values.
+
+Do not train directly from every file in `G2A_Raw_Data/G2A`, because that folder includes extra recordings outside the valid ranges.
+
 Observed dataset labels on 2026-05-11:
 
 | Label | File count |
@@ -105,6 +118,23 @@ Observed dataset labels on 2026-05-11:
 | rain | 72 |
 | river | 48 |
 | tree | 51 |
+
+Approved training sample counts in `data/valid_samples.json`:
+
+| Label | Valid count |
+| --- | ---: |
+| bird | 44 |
+| leaf | 45 |
+| ocean | 42 |
+| rain | 50 |
+| river | 47 |
+| tree | 49 |
+
+Total valid samples: 277.
+
+Total embedded IMU frames in `data/training_samples_full.json`: 41,787.
+
+Manifest indexing rule: sort files matching `20260505_*.json` by filename ascending and assign `source_index` starting at 1. The approved ranges are then applied to that 1-based sequence.
 
 Sample JSON fields observed:
 
@@ -176,4 +206,3 @@ Each frame includes accelerometer and gyroscope values:
 - What HRV window and stress threshold should be used for the first prototype?
 - How will mindfulness output be represented in the app, and is it continuous or session-based?
 - What study protocol will evaluate whether the system supports mood regulation?
-

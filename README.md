@@ -11,3 +11,7 @@ Start here:
 
 Current raw gesture data is stored in `G2A_Raw_Data/G2A`.
 
+Training data files:
+
+- `data/valid_samples.json`: compact manifest with approved samples and source file paths.
+- `data/training_samples_full.json`: single self-contained JSON with the approved samples and embedded IMU frame values.

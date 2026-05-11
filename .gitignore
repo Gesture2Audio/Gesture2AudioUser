@@ -28,3 +28,5 @@ checkpoints/
 # Duplicate source archives
 *.zip
 
+# Full app export used only as provenance during local audits
+GesturetoAudio/
