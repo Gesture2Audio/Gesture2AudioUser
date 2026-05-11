@@ -1,7 +1,7 @@
 import AVFoundation
 import Foundation
 
-struct IMUFrame: Codable {
+struct IMUFrame: Decodable, Sendable {
     let elapsedSeconds: Double
     let timestampEpoch: Double
     let ax: Double
@@ -50,7 +50,7 @@ struct IMUFrame: Codable {
     }
 }
 
-struct GestureRecording: Codable {
+struct GestureRecording: Decodable, Sendable {
     let id: String?
     let sampleId: String?
     let label: String
@@ -68,11 +68,11 @@ struct GestureRecording: Codable {
     }
 }
 
-struct GestureTrainingSet: Codable {
+struct GestureTrainingSet: Decodable, Sendable {
     let samples: [GestureRecording]
 }
 
-struct GesturePrediction: Identifiable {
+struct GesturePrediction: Identifiable, Sendable {
     let id = UUID()
     let label: String
     let displayName: String

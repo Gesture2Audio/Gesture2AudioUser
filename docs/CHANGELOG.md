@@ -45,3 +45,11 @@ Format:
 - Files: `iphone_app/GesturetoAudioPipeline`, `docs/IPHONE_PIPELINE.md`, `README.md`, `docs/CHANGELOG.md`, `.gitignore`.
 - Validation: Created `bird_river_training.json` from approved samples and ran a Python mirror of the iPhone nearest-neighbor classifier. Result: 0.901 five-fold CV accuracy and 0.913 held-out accuracy.
 - Notes: The app classifies after each 3-second watch capture arrives on the phone. This is the first testable live pipeline, not the final continuous Core ML classifier. The copied reference project was adjusted to use neutral bundle IDs, no hard-coded Apple team, and a watch motion usage description.
+
+## 2026-05-11 - Fix Gesture Decode Build Error
+
+- Changed: Switched the gesture decode models in the active iPhone app target from `Codable` to `Decodable` and marked them `Sendable`.
+- Reason: The build was failing because `IMUFrame` used decode-only coding keys, which broke synthesized `Encodable`, and Swift 6 concurrency was complaining at the JSON decode site.
+- Files: `iPhone App/Gesture2AudioUser/Gesture2AudioUser/GesturePipeline.swift`, `docs/CHANGELOG.md`.
+- Validation: Reviewed the active app target referenced by the user and checked that only the decode-path types were involved in `JSONDecoder().decode(...)`.
+- Notes: This keeps the flexible snake_case/camelCase JSON decoding logic without requiring an unused custom encoder.
