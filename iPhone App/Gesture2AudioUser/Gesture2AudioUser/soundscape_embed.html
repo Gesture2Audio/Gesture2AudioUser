@@ -1,0 +1,505 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Gesture2Audio Soundscape</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#07100a;
+  --surface:#0d1a0f;
+  --border:#1e3322;
+  --text:#c4d4bb;
+  --muted:#5e7a58;
+  --happy:#d4a843;
+  --sad:#5b8fc4;
+  --neutral:#7aaa7a;
+}
+html,body{height:100%;background:transparent;color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text',sans-serif}
+body{
+  display:flex;align-items:stretch;justify-content:stretch;
+  background-image:
+    radial-gradient(ellipse 60% 40% at 20% 80%,rgba(18,60,25,0.35) 0%,transparent 70%),
+    radial-gradient(ellipse 50% 30% at 80% 20%,rgba(10,30,50,0.28) 0%,transparent 70%);
+}
+.wrap{
+  width:100%;height:100%;
+  border:1px solid var(--border);
+  border-radius:12px;
+  overflow:hidden;
+  background:var(--surface);
+  display:flex;
+  flex-direction:column;
+}
+.head{
+  padding:12px 14px 8px 14px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+}
+.title{
+  font-size:13px;
+  text-transform:uppercase;
+  letter-spacing:0.12em;
+  color:var(--muted);
+}
+.mood{
+  font-size:12px;
+  font-weight:600;
+  color:var(--neutral);
+}
+.viz-wrap{position:relative;flex:1;min-height:110px}
+canvas{display:block;width:100%;height:100%}
+.viz-label{
+  position:absolute;bottom:8px;right:12px;
+  font-size:11px;letter-spacing:0.1em;text-transform:uppercase;
+  color:var(--muted);
+}
+.status-bar{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:10px 14px;border-top:1px solid var(--border);
+  font-size:12px;color:var(--muted);
+}
+.status-left{display:flex;align-items:center;gap:8px}
+.status-dot{
+  width:7px;height:7px;border-radius:50%;background:var(--muted);
+  transition:all 0.3s ease;
+}
+.status-dot.playing{background:var(--neutral);box-shadow:0 0 8px var(--neutral)}
+.filter-info span{
+  display:inline-block;padding:2px 6px;border-radius:999px;border:1px solid currentColor;margin-left:4px;font-size:10px;
+}
+.filter-info.happy{color:var(--happy)}
+.filter-info.sad{color:var(--sad)}
+.filter-info.neutral{color:var(--neutral)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="head">
+    <div class="title">Mood-Reactive Audio</div>
+    <div class="mood" id="mood-name">Neutral</div>
+  </div>
+  <div class="viz-wrap">
+    <canvas id="viz" height="120"></canvas>
+    <span class="viz-label">waveform</span>
+  </div>
+  <div class="status-bar">
+    <div class="status-left">
+      <span class="status-dot" id="dot"></span>
+      <span id="status-text">No sources active</span>
+    </div>
+    <div class="filter-info neutral" id="filter-info">Filter <span>-HiShelf</span></div>
+  </div>
+</div>
+
+<script>
+const FADE_IN = 1.4;
+const FADE_OUT = 1.2;
+const BIRD_TARGET_GAIN = 0.72;
+const RIVER_TARGET_GAIN = 0.58;
+const DSP_BADGES = {
+  happy: "<span>+HiShelf</span><span>+Mid</span><span>+Pres</span>",
+  sad: "<span>LowPass</span><span>+Bass</span><span>-Bright</span>",
+  neutral: "<span>-HiShelf</span>"
+};
+const FILTER_CLASSES = {
+  happy: "happy",
+  sad: "sad",
+  neutral: "neutral"
+};
+const MOOD_TITLES = {
+  happy: "Happy",
+  sad: "Sad",
+  neutral: "Neutral"
+};
+const SOURCE_STATUS = {
+  birds: "Birds",
+  river: "River"
+};
+const MOOD_COLORS = {
+  happy: "#d4a843",
+  sad: "#5b8fc4",
+  neutral: "#7aaa7a"
+};
+
+class SoundEngine {
+  constructor() {
+    this.ctx = null;
+    this.analyser = null;
+    this.nodes = {};
+    this.buffers = {};
+    this.activeSounds = new Set();
+    this.mood = "neutral";
+    this.ready = false;
+  }
+
+  async init() {
+    if (!this.ctx) {
+      this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+      this.analyser = this.ctx.createAnalyser();
+      this.analyser.fftSize = 2048;
+      this.analyser.smoothingTimeConstant = 0.85;
+      this.analyser.connect(this.ctx.destination);
+      this.ready = true;
+    }
+    if (this.ctx.state === "suspended") {
+      await this.ctx.resume();
+    }
+  }
+
+  buildBuffer(name) {
+    if (this.buffers[name]) {
+      return this.buffers[name];
+    }
+
+    const sampleRate = this.ctx.sampleRate;
+    let buffer;
+
+    if (name === "birds") {
+      const duration = 1.8;
+      const frameCount = Math.floor(sampleRate * duration);
+      buffer = this.ctx.createBuffer(2, frameCount, sampleRate);
+      const chirps = [
+        { start: 0.18, freq: 1800 },
+        { start: 0.38, freq: 2300 },
+        { start: 1.05, freq: 2050 },
+        { start: 1.30, freq: 2500 }
+      ];
+
+      for (let channel = 0; channel < 2; channel++) {
+        const data = buffer.getChannelData(channel);
+        for (let i = 0; i < frameCount; i++) {
+          const time = i / sampleRate;
+          let sample = 0;
+          for (const chirp of chirps) {
+            const local = time - chirp.start;
+            if (local >= 0 && local <= 0.12) {
+              const envelope = Math.sin(Math.PI * local / 0.12);
+              const sweep = chirp.freq + local * 950;
+              sample += Math.sin(2 * Math.PI * sweep * time) * envelope * 0.35;
+            }
+          }
+          data[i] = sample;
+        }
+      }
+    } else {
+      const duration = 2.4;
+      const frameCount = Math.floor(sampleRate * duration);
+      buffer = this.ctx.createBuffer(2, frameCount, sampleRate);
+      let previous = 0;
+      for (let channel = 0; channel < 2; channel++) {
+        const data = buffer.getChannelData(channel);
+        previous = 0;
+        for (let i = 0; i < frameCount; i++) {
+          const noise = Math.random() * 2 - 1;
+          previous = previous * 0.94 + noise * 0.06;
+          data[i] = previous * 0.55;
+        }
+      }
+    }
+
+    this.buffers[name] = buffer;
+    return buffer;
+  }
+
+  buildFilters(mood) {
+    const c = this.ctx;
+    if (mood === "happy") {
+      const lo = c.createBiquadFilter();
+      lo.type = "peaking";
+      lo.frequency.value = 900;
+      lo.Q.value = 1.2;
+      lo.gain.value = 3.5;
+
+      const mid = c.createBiquadFilter();
+      mid.type = "peaking";
+      mid.frequency.value = 2800;
+      mid.Q.value = 1.8;
+      mid.gain.value = 4;
+
+      const hi = c.createBiquadFilter();
+      hi.type = "highshelf";
+      hi.frequency.value = 5500;
+      hi.gain.value = 5;
+
+      lo.connect(mid);
+      mid.connect(hi);
+      return [lo, mid, hi];
+    }
+
+    if (mood === "sad") {
+      const lp = c.createBiquadFilter();
+      lp.type = "lowpass";
+      lp.frequency.value = 1100;
+      lp.Q.value = 0.7;
+
+      const bass = c.createBiquadFilter();
+      bass.type = "peaking";
+      bass.frequency.value = 220;
+      bass.Q.value = 2.2;
+      bass.gain.value = 5.5;
+
+      const cut = c.createBiquadFilter();
+      cut.type = "peaking";
+      cut.frequency.value = 3500;
+      cut.Q.value = 1;
+      cut.gain.value = -4;
+
+      lp.connect(bass);
+      bass.connect(cut);
+      return [lp, bass, cut];
+    }
+
+    const smooth = c.createBiquadFilter();
+    smooth.type = "highshelf";
+    smooth.frequency.value = 9000;
+    smooth.gain.value = -1.5;
+    return [smooth];
+  }
+
+  playbackRate(mood) {
+    return mood === "happy" ? 1.045 : mood === "sad" ? 0.92 : 1.0;
+  }
+
+  startSound(name, mood) {
+    if (this.nodes[name]) {
+      this.fadeOut(name);
+    }
+
+    const source = this.ctx.createBufferSource();
+    source.buffer = this.buildBuffer(name);
+    source.loop = true;
+    source.playbackRate.value = this.playbackRate(mood);
+
+    const chain = this.buildFilters(mood);
+    const gain = this.ctx.createGain();
+    const target = name === "birds" ? BIRD_TARGET_GAIN : RIVER_TARGET_GAIN;
+    gain.gain.setValueAtTime(0.0001, this.ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(target, this.ctx.currentTime + FADE_IN);
+
+    source.connect(chain[0]);
+    chain[chain.length - 1].connect(gain);
+    gain.connect(this.analyser);
+    source.start();
+
+    this.nodes[name] = { source, gain, chain };
+    this.activeSounds.add(name);
+    this.reportState();
+  }
+
+  fadeOut(name) {
+    const node = this.nodes[name];
+    if (!node) {
+      return;
+    }
+    const time = this.ctx.currentTime;
+    node.gain.gain.setValueAtTime(Math.max(node.gain.gain.value, 0.0001), time);
+    node.gain.gain.exponentialRampToValueAtTime(0.0001, time + FADE_OUT);
+    node.source.stop(time + FADE_OUT + 0.05);
+    delete this.nodes[name];
+  }
+
+  stopSound(name) {
+    this.activeSounds.delete(name);
+    this.fadeOut(name);
+    this.reportState();
+  }
+
+  async ensureSound(name) {
+    await this.init();
+    if (this.activeSounds.has(name)) {
+      this.reportState();
+      return;
+    }
+    this.startSound(name, this.mood);
+  }
+
+  async toggleSound(name) {
+    await this.init();
+    if (this.activeSounds.has(name)) {
+      this.stopSound(name);
+    } else {
+      this.startSound(name, this.mood);
+    }
+  }
+
+  async setMood(mood) {
+    this.mood = mood;
+    await this.init();
+    const active = Array.from(this.activeSounds);
+    for (const name of active) {
+      this.fadeOut(name);
+    }
+    setTimeout(() => {
+      for (const name of active) {
+        if (this.activeSounds.has(name)) {
+          this.startSound(name, this.mood);
+        }
+      }
+      this.reportState();
+    }, FADE_OUT * 500);
+    this.reportState();
+  }
+
+  async reset() {
+    await this.init();
+    const active = Array.from(this.activeSounds);
+    for (const name of active) {
+      this.fadeOut(name);
+    }
+    this.activeSounds.clear();
+    this.nodes = {};
+    this.reportState();
+  }
+
+  reportState() {
+    const names = Array.from(this.activeSounds).map(name => SOURCE_STATUS[name] || name);
+    const statusText = names.length > 0 ? `${names.join(" + ")} playing` : "No sources active";
+    updateStatusUI(this.mood, this.activeSounds, statusText);
+    postBridgeMessage({
+      type: "state",
+      activeSources: Array.from(this.activeSounds),
+      mood: this.mood,
+      statusText
+    });
+  }
+}
+
+const engine = new SoundEngine();
+const dot = document.getElementById("dot");
+const statusTextNode = document.getElementById("status-text");
+const filterInfo = document.getElementById("filter-info");
+const moodName = document.getElementById("mood-name");
+const canvas = document.getElementById("viz");
+const ctx2d = canvas.getContext("2d");
+
+function postBridgeMessage(payload) {
+  if (
+    window.webkit &&
+    window.webkit.messageHandlers &&
+    window.webkit.messageHandlers.soundscapeBridge
+  ) {
+    window.webkit.messageHandlers.soundscapeBridge.postMessage(payload);
+  }
+}
+
+function updateStatusUI(mood, activeSet, statusText) {
+  dot.className = activeSet.size > 0 ? "status-dot playing" : "status-dot";
+  statusTextNode.textContent = statusText;
+  filterInfo.className = `filter-info ${FILTER_CLASSES[mood] || "neutral"}`;
+  filterInfo.innerHTML = `Filter ${DSP_BADGES[mood] || DSP_BADGES.neutral}`;
+  moodName.textContent = MOOD_TITLES[mood] || MOOD_TITLES.neutral;
+  moodName.style.color = MOOD_COLORS[mood] || MOOD_COLORS.neutral;
+}
+
+function resizeCanvas() {
+  const width = canvas.offsetWidth;
+  const height = canvas.offsetHeight;
+  canvas.width = width * window.devicePixelRatio;
+  canvas.height = height * window.devicePixelRatio;
+  ctx2d.setTransform(window.devicePixelRatio, 0, 0, window.devicePixelRatio, 0, 0);
+}
+
+function drawIdle() {
+  const width = canvas.offsetWidth;
+  const height = canvas.offsetHeight;
+  ctx2d.clearRect(0, 0, width, height);
+  ctx2d.strokeStyle = MOOD_COLORS[engine.mood] || MOOD_COLORS.neutral;
+  ctx2d.globalAlpha = 0.25;
+  ctx2d.lineWidth = 1.5;
+  ctx2d.beginPath();
+  const amp = 6;
+  const freq = 0.012;
+  const time = Date.now() * 0.0008;
+  for (let x = 0; x <= width; x++) {
+    const y =
+      height / 2 +
+      amp * Math.sin(x * freq + time) +
+      (amp * 0.4) * Math.sin(x * freq * 2.3 + time * 1.7);
+    if (x === 0) {
+      ctx2d.moveTo(x, y);
+    } else {
+      ctx2d.lineTo(x, y);
+    }
+  }
+  ctx2d.stroke();
+  ctx2d.globalAlpha = 1;
+}
+
+function drawActive(data) {
+  const width = canvas.offsetWidth;
+  const height = canvas.offsetHeight;
+  ctx2d.clearRect(0, 0, width, height);
+  const color = MOOD_COLORS[engine.mood] || MOOD_COLORS.neutral;
+  const sliceWidth = width / data.length;
+
+  ctx2d.beginPath();
+  ctx2d.moveTo(0, height);
+  for (let i = 0; i < data.length; i++) {
+    const value = data[i] / 128.0;
+    const y = value * height / 2;
+    ctx2d.lineTo(i * sliceWidth, y);
+  }
+  ctx2d.lineTo(width, height);
+  ctx2d.closePath();
+
+  const gradient = ctx2d.createLinearGradient(0, 0, 0, height);
+  gradient.addColorStop(0, `${color}55`);
+  gradient.addColorStop(1, `${color}08`);
+  ctx2d.fillStyle = gradient;
+  ctx2d.fill();
+
+  ctx2d.beginPath();
+  ctx2d.lineWidth = 1.5;
+  ctx2d.strokeStyle = color;
+  for (let i = 0; i < data.length; i++) {
+    const value = data[i] / 128.0;
+    const y = value * height / 2;
+    if (i === 0) {
+      ctx2d.moveTo(0, y);
+    } else {
+      ctx2d.lineTo(i * sliceWidth, y);
+    }
+  }
+  ctx2d.stroke();
+}
+
+function vizLoop() {
+  requestAnimationFrame(vizLoop);
+  if (engine.analyser && engine.activeSounds.size > 0) {
+    const data = new Uint8Array(engine.analyser.frequencyBinCount);
+    engine.analyser.getByteTimeDomainData(data);
+    drawActive(data);
+  } else {
+    drawIdle();
+  }
+}
+
+window.g2a = {
+  notifyReady() {
+    updateStatusUI("neutral", new Set(), "No sources active");
+    postBridgeMessage({ type: "ready" });
+  },
+  setMood(mood) {
+    engine.setMood(mood);
+  },
+  ensureSound(name) {
+    engine.ensureSound(name);
+  },
+  toggleSound(name) {
+    engine.toggleSound(name);
+  },
+  reset() {
+    engine.reset();
+  }
+};
+
+resizeCanvas();
+window.addEventListener("resize", resizeCanvas);
+updateStatusUI("neutral", new Set(), "No sources active");
+vizLoop();
+</script>
+</body>
+</html>

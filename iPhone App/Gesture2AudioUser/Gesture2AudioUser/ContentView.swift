@@ -10,6 +10,8 @@ struct ContentView: View {
                     header
                     pipelineCard
                     predictionCard
+                    moodCard
+                    soundscapePreviewCard
                     soundscapeCard
                     imuCard
                     watchCard
@@ -93,6 +95,47 @@ struct ContentView: View {
         }
     }
 
+    private var moodCard: some View {
+        card {
+            VStack(alignment: .leading, spacing: 14) {
+                sectionTitle("Mood Control", icon: "slider.horizontal.3")
+                HStack(spacing: 10) {
+                    ForEach(SoundscapeMood.allCases) { mood in
+                        Button {
+                            session.selectMood(mood)
+                        } label: {
+                            VStack(spacing: 6) {
+                                Image(systemName: mood.systemImage)
+                                    .font(.system(size: 18, weight: .semibold))
+                                Text(mood.title)
+                                    .font(.caption.weight(.semibold))
+                            }
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 12)
+                            .foregroundStyle(session.selectedMood == mood ? .white : .primary)
+                            .background(
+                                RoundedRectangle(cornerRadius: 8)
+                                    .fill(session.selectedMood == mood ? mood.accentColor : Color(.tertiarySystemGroupedBackground))
+                            )
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+            }
+        }
+    }
+
+    private var soundscapePreviewCard: some View {
+        card {
+            VStack(alignment: .leading, spacing: 14) {
+                sectionTitle("HTML Engine", icon: "waveform.and.magnifyingglass")
+                SoundscapeWebView(controller: session.soundscape)
+                    .frame(height: 170)
+                    .clipShape(RoundedRectangle(cornerRadius: 8))
+            }
+        }
+    }
+
     private var predictionCard: some View {
         card {
             VStack(alignment: .leading, spacing: 14) {
@@ -168,6 +211,10 @@ struct ContentView: View {
                         .padding(.vertical, 8)
                     }
                 }
+
+                Text(session.soundscape.statusText)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             }
         }
     }

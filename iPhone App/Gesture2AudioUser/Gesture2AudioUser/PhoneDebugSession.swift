@@ -46,7 +46,18 @@ final class PhoneDebugSession: NSObject, ObservableObject, WCSessionDelegate {
     @Published var lastPrediction: GesturePrediction?
     @Published var predictionHistory: [GesturePrediction] = []
     @Published var activeSoundLayers: [String] = []
-    @Published var isAudioEnabled = true
+    @Published var isAudioEnabled = true {
+        didSet {
+            if isAudioEnabled {
+                soundscape.setMood(selectedMood)
+                pushLog("audio enabled")
+            } else {
+                soundscape.reset()
+                pushLog("audio disabled")
+            }
+        }
+    }
+    @Published var selectedMood: SoundscapeMood = .neutral
     @Published var isResearchModeEnabled = false {
         didSet {
             if isResearchModeEnabled {
@@ -62,7 +73,7 @@ final class PhoneDebugSession: NSObject, ObservableObject, WCSessionDelegate {
     let labels = ["leaf", "tree", "bird", "ocean", "river", "rain"]
 
     private let classifier = GestureClassifier()
-    private let soundscape = SoundscapeEngine()
+    let soundscape = SoundscapeWebController()
     private let maxLogLines = 120
     private let fileNameDateFormatter: DateFormatter = {
         let formatter = DateFormatter()
@@ -76,8 +87,16 @@ final class PhoneDebugSession: NSObject, ObservableObject, WCSessionDelegate {
     override init() {
         super.init()
         classifierStatus = classifier.loadStatus.displayText
+        soundscape.$activeLayers
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] layers in
+                self?.activeSoundLayers = layers
+            }
+            .store(in: &cancellables)
         activate()
     }
+
+    private var cancellables: Set<AnyCancellable> = []
 
     func chooseLabel(_ label: String) {
         guard labels.contains(label) else { return }
@@ -93,10 +112,15 @@ final class PhoneDebugSession: NSObject, ObservableObject, WCSessionDelegate {
 
     func resetSoundscape() {
         soundscape.reset()
-        activeSoundLayers = []
         lastPrediction = nil
         predictionHistory.removeAll()
         pushLog("soundscape reset")
+    }
+
+    func selectMood(_ mood: SoundscapeMood) {
+        selectedMood = mood
+        soundscape.setMood(mood)
+        pushLog("mood -> \(mood.rawValue)")
     }
 
     private func activate() {
@@ -253,8 +277,7 @@ final class PhoneDebugSession: NSObject, ObservableObject, WCSessionDelegate {
                     }
 
                     if self.isAudioEnabled {
-                        self.soundscape.activate(label: prediction.label)
-                        self.activeSoundLayers = self.soundscape.activeLayers
+                        self.soundscape.activateGesture(label: prediction.label)
                     }
 
                     let confidence = Int(round(prediction.confidence * 100))

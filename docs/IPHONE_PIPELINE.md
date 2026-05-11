@@ -16,21 +16,25 @@ iPhone App/Gesture2AudioUser/Gesture2AudioUser.xcodeproj
 4. Draw either the bird gesture or the fish gesture.
 5. The watch transfers the captured IMU sequence to the phone.
 6. The iPhone classifies the sequence as `bird` or `river`.
-7. The iPhone starts the matching layer:
+7. The iPhone sends the detected source to the embedded HTML sound engine.
+8. The HTML engine starts the matching layer:
    - `bird` -> bird chirps
    - `river` -> river sound
-8. A second gesture adds the next layer without stopping the first one.
+9. A second gesture adds the next layer without stopping the first one.
+10. The user can switch the sound-characteristics mode manually with native `happy`, `neutral`, and `sad` buttons, which update the embedded HTML DSP chain.
 
 ## What Is Implemented
 
 - Apple Watch IMU capture at 50 Hz.
 - Shake-triggered 3-second gesture window.
 - Phone-side classification after each transferred capture.
-- Additive bird and river audio layers on the phone.
+- Embedded HTML/JavaScript sound engine inside the iPhone app through `WKWebView`.
+- Additive bird and river audio layers driven by the embedded page.
 - Default transient processing on the phone:
   - classify immediately
   - do not persist raw captures
 - Optional research save mode on the phone for debugging and later analysis.
+- Native mood buttons that drive the HTML sound-characteristics logic.
 
 ## Model
 
@@ -44,6 +48,12 @@ Training script:
 
 ```text
 scripts/train_bird_river_model.py
+```
+
+Embedded soundscape engine:
+
+```text
+iPhone App/Gesture2AudioUser/Gesture2AudioUser/soundscape_embed.html
 ```
 
 Training data source:
@@ -94,4 +104,4 @@ The random-split demo accuracy is strong enough for the current bird/fish pipeli
 
 This app is live after each 3-second gesture capture reaches the phone. It is not continuous rolling-window classification yet.
 
-The next step is to move from transfer-per-capture inference to continuous live inference on the incoming IMU stream, then connect mood-driven audio parameter changes on top of the layered sound engine.
+The next step is to move from transfer-per-capture inference to continuous live inference on the incoming IMU stream, then replace manual `happy/neutral/sad` control with automatic physiological-state mapping from heart rate, HRV, and mindfulness signals.
