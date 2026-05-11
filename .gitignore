@@ -1,0 +1,30 @@
+# OS metadata
+.DS_Store
+Thumbs.db
+__MACOSX/
+
+# Python/cache artifacts
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Generated outputs
+outputs/
+models/
+checkpoints/
+*.h5
+*.keras
+*.onnx
+*.tflite
+*.mlmodel
+
+# Duplicate source archives
+*.zip
+
