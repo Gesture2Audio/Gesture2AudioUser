@@ -37,3 +37,11 @@ Format:
 - Files: `notebooks/binary_gesture_demo.ipynb`, `docs/DEMO_PIPELINE.md`, `README.md`, `docs/CHANGELOG.md`.
 - Validation: Converted the first model try from a command-line script into a notebook with separate cells for loading data, filtering gestures, feature extraction, training, evaluation, and the audio-layer explanation.
 - Notes: The user-facing `fish` gesture maps to the model label `river`.
+
+## 2026-05-11 - Add iPhone Bird/Fish Pipeline
+
+- Changed: Added an iPhone/watch Xcode project for the first live bird/fish pipeline. The iPhone receives watch IMU captures, classifies bird vs fish/river, and layers procedural bird/river audio.
+- Reason: The supervisor demo needs the flow where bird starts bird audio, then fish adds river audio on top, and the reverse order also works.
+- Files: `iphone_app/GesturetoAudioPipeline`, `docs/IPHONE_PIPELINE.md`, `README.md`, `docs/CHANGELOG.md`, `.gitignore`.
+- Validation: Created `bird_river_training.json` from approved samples and ran a Python mirror of the iPhone nearest-neighbor classifier. Result: 0.901 five-fold CV accuracy and 0.913 held-out accuracy.
+- Notes: The app classifies after each 3-second watch capture arrives on the phone. This is the first testable live pipeline, not the final continuous Core ML classifier. The copied reference project was adjusted to use neutral bundle IDs, no hard-coded Apple team, and a watch motion usage description.

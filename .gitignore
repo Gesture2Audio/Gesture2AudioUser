@@ -33,4 +33,9 @@ xcuserdata/
 *.xcuserstate
 
 # Full app export used only as provenance during local audits
-GesturetoAudio/
+/GesturetoAudio/
+external/
+
+# Xcode user state
+*.xcuserdatad/
+*.xcuserstate

@@ -6,6 +6,7 @@ Start here:
 
 - [Project brief](docs/PROJECT_BRIEF.md)
 - [Demo pipeline](docs/DEMO_PIPELINE.md)
+- [iPhone pipeline](docs/IPHONE_PIPELINE.md)
 - [Change log](docs/CHANGELOG.md)
 - [Decision log](docs/DECISIONS.md)
 - [Version-control workflow](docs/VERSION_CONTROL.md)
@@ -16,3 +17,7 @@ Training data files:
 
 - `data/valid_samples.json`: compact manifest with approved samples and source file paths.
 - `data/training_samples_full.json`: single self-contained JSON with the approved samples and embedded IMU frame values.
+
+iPhone/watch demo app:
+
+- `iphone_app/GesturetoAudioPipeline/GesturetoAudio.xcodeproj`
