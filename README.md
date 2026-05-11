@@ -21,3 +21,9 @@ Training data files:
 iPhone/watch demo app:
 
 - `iPhone App/Gesture2AudioUser/Gesture2AudioUser.xcodeproj`
+
+Current live audio path:
+
+- Apple Watch capture -> iPhone classification -> embedded HTML sound engine in `WKWebView`
+- `happy / neutral / sad` mood buttons drive the HTML DSP chain
+- bundled bird and river WAV assets are served to the page through a custom `g2audio://` URL-scheme handler
