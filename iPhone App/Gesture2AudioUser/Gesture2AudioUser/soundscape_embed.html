@@ -157,10 +157,13 @@ class SoundEngine {
     if (this.loading[name]) {
       return this.loading[name];
     }
-    this.loading[name] = fetch(`audio/${name}.wav`)
+    const assetURL = window.g2aAssetURLs && window.g2aAssetURLs[name]
+      ? window.g2aAssetURLs[name]
+      : `audio/${name}.wav`;
+    this.loading[name] = fetch(assetURL)
       .then(response => {
         if (!response.ok) {
-          throw new Error(`Cannot load audio/${name}.wav`);
+          throw new Error(`Cannot load ${name} audio`);
         }
         return response.arrayBuffer();
       })
@@ -168,6 +171,13 @@ class SoundEngine {
       .then(buffer => {
         this.buffers[name] = buffer;
         return buffer;
+      })
+      .catch(error => {
+        postBridgeMessage({
+          type: "error",
+          message: error && error.message ? error.message : `Audio load failed for ${name}`
+        });
+        throw error;
       });
     return this.loading[name];
   }
@@ -281,8 +291,10 @@ class SoundEngine {
       this.reportState();
       return;
     }
-    const buffer = await this.loadBuffer(name);
-    this.startSound(name, this.mood, buffer);
+    try {
+      const buffer = await this.loadBuffer(name);
+      this.startSound(name, this.mood, buffer);
+    } catch (_) {}
   }
 
   async toggleSound(name) {
@@ -290,8 +302,10 @@ class SoundEngine {
     if (this.activeSounds.has(name)) {
       this.stopSound(name);
     } else {
-      const buffer = await this.loadBuffer(name);
-      this.startSound(name, this.mood, buffer);
+      try {
+        const buffer = await this.loadBuffer(name);
+        this.startSound(name, this.mood, buffer);
+      } catch (_) {}
     }
   }
 
@@ -326,6 +340,18 @@ class SoundEngine {
     this.activeSounds.clear();
     this.nodes = {};
     this.reportState();
+  }
+
+  async primeAudio() {
+    try {
+      await this.init();
+      postBridgeMessage({ type: "state", activeSources: Array.from(this.activeSounds), mood: this.mood, statusText: this.activeSounds.size > 0 ? "Audio ready" : "Audio primed" });
+    } catch (error) {
+      postBridgeMessage({
+        type: "error",
+        message: error && error.message ? error.message : "Audio init failed"
+      });
+    }
   }
 
   reportState() {
@@ -455,6 +481,9 @@ window.g2a = {
   notifyReady() {
     updateStatusUI("neutral", new Set(), "No sources active");
     postBridgeMessage({ type: "ready" });
+  },
+  primeAudio() {
+    engine.primeAudio();
   },
   setMood(mood) {
     engine.setMood(mood);

@@ -49,9 +49,11 @@ final class SoundscapeWebController: NSObject, ObservableObject {
     @Published private(set) var activeLayers: [String] = []
     @Published private(set) var statusText = "No sources active"
     @Published private(set) var currentMood: SoundscapeMood = .neutral
+    @Published private(set) var lastError = ""
 
     private weak var webView: WKWebView?
     private var pendingScripts: [String] = []
+    private var assetURLScript = ""
 
     func attach(webView: WKWebView) {
         self.webView = webView
@@ -59,7 +61,11 @@ final class SoundscapeWebController: NSObject, ObservableObject {
 
     func pageDidBecomeReady() {
         isReady = true
+        if !assetURLScript.isEmpty {
+            run(script: assetURLScript)
+        }
         flushPendingScripts()
+        primeAudio()
         setMood(currentMood)
     }
 
@@ -82,12 +88,21 @@ final class SoundscapeWebController: NSObject, ObservableObject {
         }
     }
 
+    func recordError(_ message: String) {
+        lastError = message
+        if !message.isEmpty {
+            statusText = message
+        }
+    }
+
     func setMood(_ mood: SoundscapeMood) {
         currentMood = mood
+        primeAudio()
         run(script: "window.g2a && window.g2a.setMood('\(mood.rawValue)');")
     }
 
     func activateGesture(label: String) {
+        primeAudio()
         switch label {
         case "bird":
             run(script: "window.g2a && window.g2a.ensureSound('birds');")
@@ -100,6 +115,15 @@ final class SoundscapeWebController: NSObject, ObservableObject {
 
     func reset() {
         run(script: "window.g2a && window.g2a.reset();")
+    }
+
+    func configureAssetURLs(birds: URL, river: URL) {
+        let birdsPath = escapedJavaScriptString(birds.absoluteString)
+        let riverPath = escapedJavaScriptString(river.absoluteString)
+        assetURLScript = "window.g2aAssetURLs = { birds: '\(birdsPath)', river: '\(riverPath)' };"
+        if isReady {
+            run(script: assetURLScript)
+        }
     }
 
     private func run(script: String) {
@@ -121,6 +145,16 @@ final class SoundscapeWebController: NSObject, ObservableObject {
         for script in scripts {
             webView.evaluateJavaScript(script)
         }
+    }
+
+    private func primeAudio() {
+        run(script: "window.g2a && window.g2a.primeAudio && window.g2a.primeAudio();")
+    }
+
+    private func escapedJavaScriptString(_ value: String) -> String {
+        value
+            .replacingOccurrences(of: "\\", with: "\\\\")
+            .replacingOccurrences(of: "'", with: "\\'")
     }
 }
 
@@ -147,7 +181,11 @@ struct SoundscapeWebView: UIViewRepresentable {
         controller.attach(webView: webView)
 
         if let url = Bundle.main.url(forResource: "soundscape_embed", withExtension: "html") {
-            webView.loadFileURL(url, allowingReadAccessTo: url.deletingLastPathComponent())
+            let bundleRoot = url.deletingLastPathComponent()
+            let birds = bundleRoot.appendingPathComponent("audio/birds.wav")
+            let river = bundleRoot.appendingPathComponent("audio/river.wav")
+            controller.configureAssetURLs(birds: birds, river: river)
+            webView.loadFileURL(url, allowingReadAccessTo: bundleRoot)
         }
 
         return webView
@@ -183,6 +221,12 @@ struct SoundscapeWebView: UIViewRepresentable {
                 let mood = payload["mood"] as? String
                 let statusText = payload["statusText"] as? String
                 controller.updateState(activeSources: activeSources, mood: mood, statusText: statusText)
+                return
+            }
+
+            if type == "error" {
+                let message = payload["message"] as? String ?? "sound engine error"
+                controller.recordError(message)
             }
         }
     }

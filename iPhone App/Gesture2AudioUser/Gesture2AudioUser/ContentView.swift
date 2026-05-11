@@ -130,7 +130,7 @@ struct ContentView: View {
             VStack(alignment: .leading, spacing: 14) {
                 sectionTitle("HTML Engine", icon: "waveform.and.magnifyingglass")
                 SoundscapeWebView(controller: session.soundscape)
-                    .frame(height: 170)
+                    .frame(minHeight: 220, maxHeight: 220)
                     .clipShape(RoundedRectangle(cornerRadius: 8))
             }
         }
@@ -215,6 +215,12 @@ struct ContentView: View {
                 Text(session.soundscape.statusText)
                     .font(.caption)
                     .foregroundStyle(.secondary)
+
+                if !session.soundscape.lastError.isEmpty {
+                    Text(session.soundscape.lastError)
+                        .font(.caption)
+                        .foregroundStyle(.red)
+                }
             }
         }
     }

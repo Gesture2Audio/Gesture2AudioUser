@@ -85,3 +85,11 @@ Format:
 - Files: `iPhone App/Gesture2AudioUser/Gesture2AudioUser/audio/birds.wav`, `iPhone App/Gesture2AudioUser/Gesture2AudioUser/audio/river.wav`, `iPhone App/Gesture2AudioUser/Gesture2AudioUser/soundscape_embed.html`, `docs/CHANGELOG.md`, `docs/IPHONE_PIPELINE.md`.
 - Validation: Confirmed both WAV files are present in the active iPhone app folder and updated the embedded HTML engine to fetch `audio/birds.wav` and `audio/river.wav` locally from the app bundle.
 - Notes: Gesture classification and native mood controls are unchanged. Only the audio source backing changed from generated signals to file-backed loops.
+
+## 2026-05-12 - Fix HTML Preview Cropping And File-Backed Audio Bridge
+
+- Changed: Increased the embedded HTML preview height so the full soundscape panel is visible, injected explicit bundle file URLs for `birds.wav` and `river.wav` into the `WKWebView` page, and added bridge-level error reporting plus audio priming.
+- Reason: After pulling the latest repo state, the HTML preview was visually cropped and gesture-triggered playback was failing silently, leaving the app stuck on `No sources active` even after successful classification.
+- Files: `iPhone App/Gesture2AudioUser/Gesture2AudioUser/ContentView.swift`, `iPhone App/Gesture2AudioUser/Gesture2AudioUser/SoundscapeWebController.swift`, `iPhone App/Gesture2AudioUser/Gesture2AudioUser/soundscape_embed.html`, `docs/CHANGELOG.md`.
+- Validation: Confirmed the preview card now reserves enough vertical space for the full HTML panel. Updated the HTML engine to load audio from explicit bundle URLs and surface load/init failures back to Swift, which can now display the exact error in the app instead of silently showing no active layers.
+- Notes: The pulled remote update was `d0dae22 initializer values fixed`, which only changed a single initializer value and did not affect the cropped preview or audio-loading path.
