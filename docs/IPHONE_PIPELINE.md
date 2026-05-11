@@ -1,72 +1,97 @@
 # iPhone Pipeline
 
-This app is the first live pipeline for the bird/fish demo.
+This is the active live bird/fish demo app.
 
 Project:
 
 ```text
-iphone_app/GesturetoAudioPipeline/GesturetoAudio.xcodeproj
+iPhone App/Gesture2AudioUser/Gesture2AudioUser.xcodeproj
 ```
 
 ## Demo Flow
 
-1. Open the Xcode project.
-2. Run the iPhone app target on the iPhone.
-3. Run the Watch app target on the paired Apple Watch.
-4. On the watch, shake to start capture.
-5. Draw a bird or fish gesture for the 3-second capture window.
-6. The watch transfers the captured IMU frames to the iPhone.
-7. The iPhone classifies the capture as `bird` or `river`.
-8. The iPhone starts the matching sound layer:
+1. Run the iPhone app on the phone.
+2. Run the Watch app on the paired Apple Watch.
+3. Shake the watch to trigger a 3-second capture.
+4. Draw either the bird gesture or the fish gesture.
+5. The watch transfers the captured IMU sequence to the phone.
+6. The iPhone classifies the sequence as `bird` or `river`.
+7. The iPhone starts the matching layer:
    - `bird` -> bird chirps
    - `river` -> river sound
-9. The next gesture adds another layer without stopping the previous one.
-
-Before running on physical devices, open Signing & Capabilities in Xcode and choose your Apple developer team for both the iPhone target and the Watch app target. The copied reference project had personal team IDs, so this repo clears them and uses neutral bundle identifiers.
+8. A second gesture adds the next layer without stopping the first one.
 
 ## What Is Implemented
 
-- Apple Watch IMU capture is based on the reference data-collection project.
-- The watch still uses shake detection to trigger a 3-second capture window.
-- The iPhone receives the captured JSON through WatchConnectivity.
-- The iPhone classifies bird vs fish/river using a bundled nearest-neighbor model.
-- The iPhone generates procedural bird and river sounds with AVAudioEngine.
-- The soundscape is additive, so bird then fish gives bird chirps plus river sound.
+- Apple Watch IMU capture at 50 Hz.
+- Shake-triggered 3-second gesture window.
+- Phone-side classification after each transferred capture.
+- Additive bird and river audio layers on the phone.
+- Default transient processing on the phone:
+  - classify immediately
+  - do not persist raw captures
+- Optional research save mode on the phone for debugging and later analysis.
 
-## Model Data
+## Model
 
-Bundled app data:
+Bundled model file:
 
 ```text
-iphone_app/GesturetoAudioPipeline/GesturetoAudio/bird_river_training.json
+iPhone App/Gesture2AudioUser/Gesture2AudioUser/bird_river_model.json
 ```
 
-This file contains 91 approved samples:
+Training script:
 
-- `bird`: 44
-- `river`: 47
+```text
+scripts/train_bird_river_model.py
+```
 
-The user-facing fish gesture is stored as `river` in the dataset because it maps to the river sound.
+Training data source:
+
+```text
+data/training_samples_full.json
+```
+
+Model details:
+
+- model type: logistic regression
+- classes: `bird`, `river`
+- training samples: 91
+- feature count: 416
+- input channels:
+  - `ax`, `ay`, `az`
+  - `gx`, `gy`, `gz`
+  - acceleration magnitude
+  - gyroscope magnitude
+- feature extraction:
+  - fixed 151-frame window
+  - 32-bin temporal downsampling
+  - raw-signal summary statistics
+  - delta-signal summary statistics
+
+The user-facing fish gesture is stored as `river` in the dataset because it triggers the river sound layer.
 
 ## Validation
 
-A Python mirror of the iPhone classifier was run against the bundled training file.
+The trained model artifact was generated from the approved bird and river samples and evaluated during training.
 
 Result:
 
 ```text
-5-fold CV accuracy: 0.901
-Held-out accuracy: 0.913
-Confusion matrix:
+5-fold CV accuracy: 0.923
+Held-out accuracy: 1.000
+Held-out confusion matrix:
 ['bird', 'river']
-[[11  0]
- [ 2 10]]
+[[11, 0], [0, 12]]
+Leave-one-participant-out:
+Nilakna -> 0.525
+Nilesh  -> 0.490
 ```
 
-This is enough for a first pipeline test. It is not yet a final general-user model.
+The random-split demo accuracy is strong enough for the current bird/fish pipeline test. The participant-split result is still weak, which means the model is learning person-specific drawing style. For a general-user model, more participants are required.
 
 ## Current Limitation
 
-This first app does classification after each 3-second capture arrives on the iPhone. It is live for the demo flow, but it is not continuous frame-by-frame classification yet.
+This app is live after each 3-second gesture capture reaches the phone. It is not continuous rolling-window classification yet.
 
-The next step is to replace the nearest-neighbor model with a Core ML model and classify directly from a rolling IMU window.
+The next step is to move from transfer-per-capture inference to continuous live inference on the incoming IMU stream, then connect mood-driven audio parameter changes on top of the layered sound engine.

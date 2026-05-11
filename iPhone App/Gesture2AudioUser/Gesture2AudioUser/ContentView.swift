@@ -49,6 +49,7 @@ struct ContentView: View {
 
             HStack(spacing: 10) {
                 statusPill(icon: "waveform.path.ecg", text: session.classifierStatus)
+                statusPill(icon: session.isResearchModeEnabled ? "externaldrive.badge.checkmark" : "bolt.horizontal", text: session.isResearchModeEnabled ? "research save on" : "transient mode")
                 Toggle(isOn: $session.isAudioEnabled) {
                     Image(systemName: session.isAudioEnabled ? "speaker.wave.2.fill" : "speaker.slash.fill")
                 }
@@ -202,10 +203,13 @@ struct ContentView: View {
                 HStack {
                     Text("Shakes \(session.latest.shakeCount)")
                     Spacer()
-                    Text("Saved \(session.latest.savedCount)")
+                    Text(session.isResearchModeEnabled ? "Watch captures \(session.latest.savedCount)" : "Transient capture mode")
                 }
                 .font(.caption)
                 .foregroundStyle(.secondary)
+
+                Toggle("Research Save", isOn: $session.isResearchModeEnabled)
+                    .font(.caption.weight(.semibold))
             }
         }
     }

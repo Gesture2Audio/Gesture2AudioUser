@@ -61,3 +61,11 @@ Format:
 - Files: `iPhone App/Gesture2AudioUser/Gesture2AudioUser/bird_river_training.json`, `iPhone App/Gesture2AudioUser/Gesture2AudioUser/GesturePipeline.swift`, `iPhone App/Gesture2AudioUser/Gesture2AudioUser/PhoneDebugSession.swift`, `docs/CHANGELOG.md`.
 - Validation: Regenerated the bird/river training JSON from `data/training_samples_full.json` and verified the file was created in the active app target folder with 91 samples.
 - Notes: If the file is missing from the built app bundle again, the status text now reports that exact failure instead of a generic unavailable message.
+
+## 2026-05-11 - Replace Demo Matcher With Trained Bird/River Model
+
+- Changed: Replaced the phone-side nearest-neighbor demo matcher with a trained logistic-regression model bundled as `bird_river_model.json`. Added a reproducible training script and switched the phone pipeline to transient classification by default, with optional research save mode.
+- Reason: The user app should use a real trained model rather than compare incoming captures against raw stored training examples, and the default phone behavior should focus on classification and audio layering instead of always behaving like a collector app.
+- Files: `scripts/train_bird_river_model.py`, `iPhone App/Gesture2AudioUser/Gesture2AudioUser/bird_river_model.json`, `iPhone App/Gesture2AudioUser/Gesture2AudioUser/GesturePipeline.swift`, `iPhone App/Gesture2AudioUser/Gesture2AudioUser/PhoneDebugSession.swift`, `iPhone App/Gesture2AudioUser/Gesture2AudioUser/ContentView.swift`, `docs/IPHONE_PIPELINE.md`, `README.md`, `docs/CHANGELOG.md`.
+- Validation: Trained the model from `data/training_samples_full.json`. Result: 0.923 five-fold CV accuracy, 1.000 held-out accuracy, confusion matrix `[[11, 0], [0, 12]]`. Participant-held-out validation remained weak at 0.525 and 0.490, so the current model is suitable for the controlled bird/fish demo but not yet for broad user generalization.
+- Notes: The active app now loads the trained model artifact from `Bundle.main`. The default phone flow is `receive capture -> classify immediately -> layer audio -> discard raw capture`, unless research save mode is turned on in the UI.

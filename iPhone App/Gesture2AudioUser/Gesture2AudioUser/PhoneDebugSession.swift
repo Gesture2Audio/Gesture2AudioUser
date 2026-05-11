@@ -40,13 +40,24 @@ final class PhoneDebugSession: NSObject, ObservableObject, WCSessionDelegate {
     @Published var selectedDay = 1
     @Published var savedByLabel: [String: Int] = [:]
     @Published var storageRootPath = ""
-    @Published var lastStorageStatus = "initializing"
+    @Published var lastStorageStatus = "research mode off"
     @Published var captureFilePath = ""
     @Published var classifierStatus = "loading model"
     @Published var lastPrediction: GesturePrediction?
     @Published var predictionHistory: [GesturePrediction] = []
     @Published var activeSoundLayers: [String] = []
     @Published var isAudioEnabled = true
+    @Published var isResearchModeEnabled = false {
+        didSet {
+            if isResearchModeEnabled {
+                bootstrapStorage()
+            } else {
+                captureFilePath = ""
+                lastStorageStatus = "research mode off"
+                pushLog("phone capture storage disabled")
+            }
+        }
+    }
 
     let labels = ["leaf", "tree", "bird", "ocean", "river", "rain"]
 
@@ -65,7 +76,6 @@ final class PhoneDebugSession: NSObject, ObservableObject, WCSessionDelegate {
     override init() {
         super.init()
         classifierStatus = classifier.loadStatus.displayText
-        bootstrapStorage()
         activate()
     }
 
@@ -166,7 +176,7 @@ final class PhoneDebugSession: NSObject, ObservableObject, WCSessionDelegate {
         DispatchQueue.main.async {
             self.recordWatchActivity()
         }
-        saveTransferredFile(file)
+        processTransferredCapture(file)
     }
 
     private func consume(payload: [String: Any]) {
@@ -196,37 +206,27 @@ final class PhoneDebugSession: NSObject, ObservableObject, WCSessionDelegate {
         latest.yaw = doubleValue(payload["yaw"], fallback: latest.yaw)
     }
 
-    private func saveTransferredFile(_ sessionFile: WCSessionFile) {
+    private func processTransferredCapture(_ sessionFile: WCSessionFile) {
         let day = intValue(sessionFile.metadata?["day"], fallback: selectedDay)
         let label = stringValue(sessionFile.metadata?["label"], fallback: "unknown")
         let sampleId = stringValue(sessionFile.metadata?["sample_id"], fallback: UUID().uuidString)
+        let shouldPersist = isResearchModeEnabled
 
-        do {
-            let destination = try destinationURL(for: sessionFile.fileURL, day: day, label: label, sampleId: sampleId)
-
-            if FileManager.default.fileExists(atPath: destination.path) {
-                try FileManager.default.removeItem(at: destination)
-            }
-
-            try FileManager.default.copyItem(at: sessionFile.fileURL, to: destination)
-
-            DispatchQueue.main.async {
-                self.captureFilePath = destination.path
-                self.savedByLabel[label, default: 0] += 1
-                self.pushLog("saved \(destination.lastPathComponent)")
-            }
-            classifyTransferredCapture(at: destination)
-        } catch {
-            DispatchQueue.main.async {
-                self.pushLog("save failed: \(error.localizedDescription)")
-            }
-        }
-    }
-
-    private func classifyTransferredCapture(at url: URL) {
         DispatchQueue.global(qos: .userInitiated).async {
             do {
-                let data = try Data(contentsOf: url)
+                let classificationURL: URL
+                if shouldPersist {
+                    let destination = try self.destinationURL(for: sessionFile.fileURL, day: day, label: label, sampleId: sampleId)
+                    if FileManager.default.fileExists(atPath: destination.path) {
+                        try FileManager.default.removeItem(at: destination)
+                    }
+                    try FileManager.default.copyItem(at: sessionFile.fileURL, to: destination)
+                    classificationURL = destination
+                } else {
+                    classificationURL = sessionFile.fileURL
+                }
+
+                let data = try Data(contentsOf: classificationURL)
                 let recording = try JSONDecoder().decode(GestureRecording.self, from: data)
 
                 guard let prediction = self.classifier.classify(frames: recording.frames) else {
@@ -237,6 +237,15 @@ final class PhoneDebugSession: NSObject, ObservableObject, WCSessionDelegate {
                 }
 
                 DispatchQueue.main.async {
+                    if shouldPersist {
+                        self.captureFilePath = classificationURL.path
+                        self.savedByLabel[label, default: 0] += 1
+                        self.pushLog("saved \(classificationURL.lastPathComponent)")
+                    } else {
+                        self.captureFilePath = ""
+                        self.pushLog("processed transient capture \(sampleId.prefix(8))")
+                    }
+
                     self.lastPrediction = prediction
                     self.predictionHistory.insert(prediction, at: 0)
                     if self.predictionHistory.count > 12 {
@@ -253,7 +262,7 @@ final class PhoneDebugSession: NSObject, ObservableObject, WCSessionDelegate {
                 }
             } catch {
                 DispatchQueue.main.async {
-                    self.pushLog("classification failed: \(error.localizedDescription)")
+                    self.pushLog(shouldPersist ? "save/classification failed: \(error.localizedDescription)" : "classification failed: \(error.localizedDescription)")
                 }
             }
         }

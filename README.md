@@ -20,4 +20,4 @@ Training data files:
 
 iPhone/watch demo app:
 
-- `iphone_app/GesturetoAudioPipeline/GesturetoAudio.xcodeproj`
+- `iPhone App/Gesture2AudioUser/Gesture2AudioUser.xcodeproj`
