@@ -9,9 +9,12 @@ import SwiftUI
 
 @main
 struct Gesture2AudioUserApp: App {
+    @StateObject private var debugSession = PhoneDebugSession()
+
     var body: some Scene {
         WindowGroup {
             ContentView()
+                .environmentObject(debugSession)
         }
     }
 }
