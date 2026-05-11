@@ -32,8 +32,8 @@ Format:
 
 ## 2026-05-11 - Add Binary Gesture Demo
 
-- Changed: Added a small two-gesture classification script and demo notes for showing the pipeline.
+- Changed: Added a small two-gesture classification notebook and demo notes for showing the pipeline.
 - Reason: The supervisor demo only needs to show that two gestures, such as bird and fish, can be separated from the cleaned IMU data.
-- Files: `scripts/binary_gesture_demo.py`, `docs/DEMO_PIPELINE.md`, `README.md`, `docs/CHANGELOG.md`.
-- Validation: Ran the demo script on bird vs fish/river after feature tuning and checked cross-validation plus held-out results.
+- Files: `notebooks/binary_gesture_demo.ipynb`, `docs/DEMO_PIPELINE.md`, `README.md`, `docs/CHANGELOG.md`.
+- Validation: Converted the first model try from a command-line script into a notebook with separate cells for loading data, filtering gestures, feature extraction, training, evaluation, and the audio-layer explanation.
 - Notes: The user-facing `fish` gesture maps to the model label `river`.

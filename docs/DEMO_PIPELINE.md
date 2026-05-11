@@ -22,13 +22,13 @@ In the model data, `fish` is stored as the `river` label because the fish gestur
 
 ## Command
 
-Run:
+Open and run:
 
-```powershell
-python scripts/binary_gesture_demo.py --gestures bird fish
+```text
+notebooks/binary_gesture_demo.ipynb
 ```
 
-The script:
+The notebook:
 
 1. loads the full training JSON
 2. filters the two selected gestures
@@ -36,12 +36,6 @@ The script:
 4. adds simple motion features
 5. trains a small classifier
 6. prints cross-validation accuracy, held-out accuracy, and a confusion matrix
-
-The report is saved to:
-
-```text
-outputs/binary_gesture_demo.json
-```
 
 ## Why This Demo Works
 
