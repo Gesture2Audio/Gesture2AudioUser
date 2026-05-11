@@ -35,6 +35,9 @@ iPhone App/Gesture2AudioUser/Gesture2AudioUser.xcodeproj
   - do not persist raw captures
 - Optional research save mode on the phone for debugging and later analysis.
 - Native mood buttons that drive the HTML sound-characteristics logic.
+- Bundled sound files from the soundscape prototype repo:
+  - `audio/birds.wav`
+  - `audio/river.wav`
 
 ## Model
 
@@ -54,6 +57,13 @@ Embedded soundscape engine:
 
 ```text
 iPhone App/Gesture2AudioUser/Gesture2AudioUser/soundscape_embed.html
+```
+
+Bundled sound assets:
+
+```text
+iPhone App/Gesture2AudioUser/Gesture2AudioUser/audio/birds.wav
+iPhone App/Gesture2AudioUser/Gesture2AudioUser/audio/river.wav
 ```
 
 Training data source:

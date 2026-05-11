@@ -77,3 +77,11 @@ Format:
 - Files: `iPhone App/Gesture2AudioUser/Gesture2AudioUser/SoundscapeWebController.swift`, `iPhone App/Gesture2AudioUser/Gesture2AudioUser/soundscape_embed.html`, `iPhone App/Gesture2AudioUser/Gesture2AudioUser/PhoneDebugSession.swift`, `iPhone App/Gesture2AudioUser/Gesture2AudioUser/ContentView.swift`, `iPhone App/Gesture2AudioUser/Gesture2AudioUser/GesturePipeline.swift`, `docs/CHANGELOG.md`, `docs/IPHONE_PIPELINE.md`.
 - Validation: Matched the HTML prototype behavior for two sources (`birds`, `river`), mood-dependent filter chains, mood-dependent playback-rate changes, additive layering, reset behavior, and waveform/status display through the embedded page bridge.
 - Notes: The embedded HTML uses procedural bird and river sources so the app keeps the same demo sounds as the previous native implementation without needing external `.wav` assets.
+
+## 2026-05-12 - Switch Embedded HTML Engine To Bundled WAV Assets
+
+- Changed: Replaced the embedded HTML engine's procedural bird and river sources with bundled `birds.wav` and `river.wav` assets copied from the `G2A_Soundscape` repository.
+- Reason: The app should now use the same audio files as the soundscape prototype while keeping the same embedded HTML control path.
+- Files: `iPhone App/Gesture2AudioUser/Gesture2AudioUser/audio/birds.wav`, `iPhone App/Gesture2AudioUser/Gesture2AudioUser/audio/river.wav`, `iPhone App/Gesture2AudioUser/Gesture2AudioUser/soundscape_embed.html`, `docs/CHANGELOG.md`, `docs/IPHONE_PIPELINE.md`.
+- Validation: Confirmed both WAV files are present in the active iPhone app folder and updated the embedded HTML engine to fetch `audio/birds.wav` and `audio/river.wav` locally from the app bundle.
+- Notes: Gesture classification and native mood controls are unchanged. Only the audio source backing changed from generated signals to file-backed loops.

@@ -130,6 +130,7 @@ class SoundEngine {
     this.analyser = null;
     this.nodes = {};
     this.buffers = {};
+    this.loading = {};
     this.activeSounds = new Set();
     this.mood = "neutral";
     this.ready = false;
@@ -149,59 +150,26 @@ class SoundEngine {
     }
   }
 
-  buildBuffer(name) {
+  async loadBuffer(name) {
     if (this.buffers[name]) {
       return this.buffers[name];
     }
-
-    const sampleRate = this.ctx.sampleRate;
-    let buffer;
-
-    if (name === "birds") {
-      const duration = 1.8;
-      const frameCount = Math.floor(sampleRate * duration);
-      buffer = this.ctx.createBuffer(2, frameCount, sampleRate);
-      const chirps = [
-        { start: 0.18, freq: 1800 },
-        { start: 0.38, freq: 2300 },
-        { start: 1.05, freq: 2050 },
-        { start: 1.30, freq: 2500 }
-      ];
-
-      for (let channel = 0; channel < 2; channel++) {
-        const data = buffer.getChannelData(channel);
-        for (let i = 0; i < frameCount; i++) {
-          const time = i / sampleRate;
-          let sample = 0;
-          for (const chirp of chirps) {
-            const local = time - chirp.start;
-            if (local >= 0 && local <= 0.12) {
-              const envelope = Math.sin(Math.PI * local / 0.12);
-              const sweep = chirp.freq + local * 950;
-              sample += Math.sin(2 * Math.PI * sweep * time) * envelope * 0.35;
-            }
-          }
-          data[i] = sample;
-        }
-      }
-    } else {
-      const duration = 2.4;
-      const frameCount = Math.floor(sampleRate * duration);
-      buffer = this.ctx.createBuffer(2, frameCount, sampleRate);
-      let previous = 0;
-      for (let channel = 0; channel < 2; channel++) {
-        const data = buffer.getChannelData(channel);
-        previous = 0;
-        for (let i = 0; i < frameCount; i++) {
-          const noise = Math.random() * 2 - 1;
-          previous = previous * 0.94 + noise * 0.06;
-          data[i] = previous * 0.55;
-        }
-      }
+    if (this.loading[name]) {
+      return this.loading[name];
     }
-
-    this.buffers[name] = buffer;
-    return buffer;
+    this.loading[name] = fetch(`audio/${name}.wav`)
+      .then(response => {
+        if (!response.ok) {
+          throw new Error(`Cannot load audio/${name}.wav`);
+        }
+        return response.arrayBuffer();
+      })
+      .then(arrayBuffer => this.ctx.decodeAudioData(arrayBuffer))
+      .then(buffer => {
+        this.buffers[name] = buffer;
+        return buffer;
+      });
+    return this.loading[name];
   }
 
   buildFilters(mood) {
@@ -263,13 +231,13 @@ class SoundEngine {
     return mood === "happy" ? 1.045 : mood === "sad" ? 0.92 : 1.0;
   }
 
-  startSound(name, mood) {
+  startSound(name, mood, buffer) {
     if (this.nodes[name]) {
       this.fadeOut(name);
     }
 
     const source = this.ctx.createBufferSource();
-    source.buffer = this.buildBuffer(name);
+    source.buffer = buffer;
     source.loop = true;
     source.playbackRate.value = this.playbackRate(mood);
 
@@ -313,7 +281,8 @@ class SoundEngine {
       this.reportState();
       return;
     }
-    this.startSound(name, this.mood);
+    const buffer = await this.loadBuffer(name);
+    this.startSound(name, this.mood, buffer);
   }
 
   async toggleSound(name) {
@@ -321,7 +290,8 @@ class SoundEngine {
     if (this.activeSounds.has(name)) {
       this.stopSound(name);
     } else {
-      this.startSound(name, this.mood);
+      const buffer = await this.loadBuffer(name);
+      this.startSound(name, this.mood, buffer);
     }
   }
 
@@ -335,7 +305,11 @@ class SoundEngine {
     setTimeout(() => {
       for (const name of active) {
         if (this.activeSounds.has(name)) {
-          this.startSound(name, this.mood);
+          this.loadBuffer(name).then(buffer => {
+            if (this.activeSounds.has(name)) {
+              this.startSound(name, this.mood, buffer);
+            }
+          }).catch(() => {});
         }
       }
       this.reportState();
