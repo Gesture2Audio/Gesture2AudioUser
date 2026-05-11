@@ -5,6 +5,7 @@ This workspace documents and develops the G2A research prototype: an Apple Watch
 Start here:
 
 - [Project brief](docs/PROJECT_BRIEF.md)
+- [Demo pipeline](docs/DEMO_PIPELINE.md)
 - [Change log](docs/CHANGELOG.md)
 - [Decision log](docs/DECISIONS.md)
 - [Version-control workflow](docs/VERSION_CONTROL.md)

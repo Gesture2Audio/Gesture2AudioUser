@@ -29,3 +29,11 @@ Format:
 - Files: `data/valid_samples.json`, `data/training_samples_full.json`, `README.md`, `docs/PROJECT_BRIEF.md`, `docs/CHANGELOG.md`, `.gitignore`.
 - Validation: Generated the manifest from `G2A_Raw_Data/G2A`, checked each selected file's filename label and JSON `label` against the expected range label, and confirmed per-label counts. Generated the full training JSON from the manifest and confirmed 277 samples and 41,787 frames.
 - Notes: The valid manifest uses 1-based filename order over `20260505_*.json`; older app-installation files in `GesturetoAudio` are not part of the training set. The JSON is formatted with standard two-space indentation and consistent snake_case field names.
+
+## 2026-05-11 - Add Binary Gesture Demo
+
+- Changed: Added a small two-gesture classification script and demo notes for showing the pipeline.
+- Reason: The supervisor demo only needs to show that two gestures, such as bird and fish, can be separated from the cleaned IMU data.
+- Files: `scripts/binary_gesture_demo.py`, `docs/DEMO_PIPELINE.md`, `README.md`, `docs/CHANGELOG.md`.
+- Validation: Ran the demo script on bird vs fish/river after feature tuning and checked cross-validation plus held-out results.
+- Notes: The user-facing `fish` gesture maps to the model label `river`.
