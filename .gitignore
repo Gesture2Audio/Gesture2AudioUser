@@ -28,5 +28,9 @@ checkpoints/
 # Duplicate source archives
 *.zip
 
+# Xcode local user state
+xcuserdata/
+*.xcuserstate
+
 # Full app export used only as provenance during local audits
 GesturetoAudio/
