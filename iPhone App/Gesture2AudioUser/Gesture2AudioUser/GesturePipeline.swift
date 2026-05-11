@@ -92,6 +92,23 @@ struct GesturePrediction: Identifiable, Sendable {
 }
 
 final class GestureClassifier {
+    enum LoadStatus: Sendable {
+        case ready(sampleCount: Int)
+        case missingResource
+        case failedToDecode(String)
+
+        var displayText: String {
+            switch self {
+            case .ready(let sampleCount):
+                return "ready: \(sampleCount) bird/fish samples"
+            case .missingResource:
+                return "model unavailable: bundled training file missing"
+            case .failedToDecode(let message):
+                return "model unavailable: \(message)"
+            }
+        }
+    }
+
     private struct TrainingFeature {
         let label: String
         let values: [Double]
@@ -100,6 +117,7 @@ final class GestureClassifier {
     private let targetFrames = 151
     private let neighborCount = 5
     private var trainingFeatures: [TrainingFeature] = []
+    private(set) var loadStatus: LoadStatus = .missingResource
 
     init() {
         loadBundledTrainingSet()
@@ -154,6 +172,7 @@ final class GestureClassifier {
 
     private func loadBundledTrainingSet() {
         guard let url = Bundle.main.url(forResource: "bird_river_training", withExtension: "json") else {
+            loadStatus = .missingResource
             return
         }
 
@@ -163,8 +182,10 @@ final class GestureClassifier {
             trainingFeatures = trainingSet.samples
                 .filter { $0.label == "bird" || $0.label == "river" }
                 .map { TrainingFeature(label: $0.label, values: featuresForFrames($0.frames)) }
+            loadStatus = .ready(sampleCount: trainingFeatures.count)
         } catch {
             trainingFeatures = []
+            loadStatus = .failedToDecode(error.localizedDescription)
         }
     }
 

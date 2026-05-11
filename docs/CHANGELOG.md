@@ -53,3 +53,11 @@ Format:
 - Files: `iPhone App/Gesture2AudioUser/Gesture2AudioUser/GesturePipeline.swift`, `docs/CHANGELOG.md`.
 - Validation: Reviewed the active app target referenced by the user and checked that only the decode-path types were involved in `JSONDecoder().decode(...)`.
 - Notes: This keeps the flexible snake_case/camelCase JSON decoding logic without requiring an unused custom encoder.
+
+## 2026-05-11 - Fix Missing Bundled Model In Active App
+
+- Changed: Added `bird_river_training.json` to the active iPhone app target folder and improved classifier load-status reporting in the UI.
+- Reason: The app was always showing `model unavailable` because the active `Gesture2AudioUser` target did not include the bundled training JSON that the classifier tries to load from `Bundle.main`.
+- Files: `iPhone App/Gesture2AudioUser/Gesture2AudioUser/bird_river_training.json`, `iPhone App/Gesture2AudioUser/Gesture2AudioUser/GesturePipeline.swift`, `iPhone App/Gesture2AudioUser/Gesture2AudioUser/PhoneDebugSession.swift`, `docs/CHANGELOG.md`.
+- Validation: Regenerated the bird/river training JSON from `data/training_samples_full.json` and verified the file was created in the active app target folder with 91 samples.
+- Notes: If the file is missing from the built app bundle again, the status text now reports that exact failure instead of a generic unavailable message.

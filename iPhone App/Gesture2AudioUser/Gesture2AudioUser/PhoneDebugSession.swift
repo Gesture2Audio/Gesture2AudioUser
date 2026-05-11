@@ -64,9 +64,7 @@ final class PhoneDebugSession: NSObject, ObservableObject, WCSessionDelegate {
 
     override init() {
         super.init()
-        classifierStatus = classifier.isReady
-            ? "ready: \(classifier.trainingSampleCount) bird/fish samples"
-            : "model unavailable"
+        classifierStatus = classifier.loadStatus.displayText
         bootstrapStorage()
         activate()
     }
