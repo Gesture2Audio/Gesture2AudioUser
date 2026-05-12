@@ -8,6 +8,7 @@
 import Foundation
 import WatchConnectivity
 import Combine
+import AVFoundation
 
 struct PhoneDebugSnapshot {
     var label = "leaf"
@@ -87,6 +88,7 @@ final class PhoneDebugSession: NSObject, ObservableObject, WCSessionDelegate {
     override init() {
         super.init()
         classifierStatus = classifier.loadStatus.displayText
+        configureAudioSession()
         soundscape.$activeLayers
             .receive(on: DispatchQueue.main)
             .sink { [weak self] layers in
@@ -121,6 +123,17 @@ final class PhoneDebugSession: NSObject, ObservableObject, WCSessionDelegate {
         selectedMood = mood
         soundscape.setMood(mood)
         pushLog("mood -> \(mood.rawValue)")
+    }
+
+    private func configureAudioSession() {
+        do {
+            let session = AVAudioSession.sharedInstance()
+            try session.setCategory(.playback, mode: .default, options: [])
+            try session.setActive(true)
+            pushLog("audio session ready")
+        } catch {
+            pushLog("audio session failed: \(error.localizedDescription)")
+        }
     }
 
     private func activate() {
