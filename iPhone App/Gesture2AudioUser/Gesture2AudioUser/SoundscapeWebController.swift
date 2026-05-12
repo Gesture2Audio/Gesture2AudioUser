@@ -1,6 +1,5 @@
 import Foundation
 import Combine
-import AVFoundation
 import SwiftUI
 import WebKit
 
@@ -54,7 +53,7 @@ final class SoundscapeWebController: NSObject, ObservableObject {
 
     private weak var webView: WKWebView?
     private var pendingScripts: [String] = []
-    private var players: [String: AVAudioPlayer] = [:]
+    private var assetURLScript = ""
 
     func attach(webView: WKWebView) {
         self.webView = webView
@@ -62,19 +61,33 @@ final class SoundscapeWebController: NSObject, ObservableObject {
 
     func pageDidBecomeReady() {
         isReady = true
+        if !assetURLScript.isEmpty {
+            run(script: assetURLScript)
+        }
         flushPendingScripts()
-        syncVisualization()
+        primeAudio()
+        setMood(currentMood)
     }
 
     func updateState(activeSources: [String], mood: String?, statusText: String?) {
-        if let mood, let resolvedMood = SoundscapeMood(rawValue: mood) {
-            currentMood = resolvedMood
+        activeLayers = activeSources.map {
+            switch $0 {
+            case "birds":
+                return "Bird chirps"
+            case "river":
+                return "River sound"
+            default:
+                return $0.capitalized
+            }
         }
         if let statusText, !statusText.isEmpty {
             self.statusText = statusText
         }
-        if !activeSources.isEmpty {
-            activeLayers = displayLayers(for: activeSources)
+        if let mood, let resolvedMood = SoundscapeMood(rawValue: mood) {
+            currentMood = resolvedMood
+        }
+        if activeSources.isEmpty && lastError.isEmpty {
+            self.statusText = "No sources active"
         }
     }
 
@@ -85,32 +98,45 @@ final class SoundscapeWebController: NSObject, ObservableObject {
         }
     }
 
+    func clearError() {
+        lastError = ""
+        if activeLayers.isEmpty {
+            statusText = "No sources active"
+        }
+    }
+
     func setMood(_ mood: SoundscapeMood) {
         currentMood = mood
-        applyMoodToPlayers()
-        syncVisualization()
+        primeAudio()
+        clearError()
+        run(script: "window.g2a && window.g2a.setMood('\(mood.rawValue)');")
     }
 
     func activateGesture(label: String) {
+        primeAudio()
+        clearError()
         switch label {
         case "bird":
-            startSound(named: "birds")
+            run(script: "window.g2a && window.g2a.ensureSound('birds');")
         case "river":
-            startSound(named: "river")
+            run(script: "window.g2a && window.g2a.ensureSound('river');")
         default:
             break
         }
     }
 
     func reset() {
-        for player in players.values {
-            player.stop()
+        clearError()
+        run(script: "window.g2a && window.g2a.reset();")
+    }
+
+    func configureAssetURLs(birds: URL, river: URL) {
+        let birdsPath = escapedJavaScriptString(birds.absoluteString)
+        let riverPath = escapedJavaScriptString(river.absoluteString)
+        assetURLScript = "window.g2aAssetURLs = { birds: '\(birdsPath)', river: '\(riverPath)' };"
+        if isReady {
+            run(script: assetURLScript)
         }
-        players.removeAll()
-        activeLayers = []
-        statusText = "No sources active"
-        lastError = ""
-        syncVisualization()
     }
 
     private func run(script: String) {
@@ -134,126 +160,56 @@ final class SoundscapeWebController: NSObject, ObservableObject {
         }
     }
 
-    private func startSound(named name: String) {
-        do {
-            try AVAudioSession.sharedInstance().setActive(true)
-            let player = try player(for: name)
-            player.volume = targetVolume(for: name)
-            if !player.prepareToPlay() {
-                throw NSError(domain: "Gesture2Audio.Sound", code: 3, userInfo: [
-                    NSLocalizedDescriptionKey: "Unable to prepare \(name).wav for playback."
-                ])
-            }
-            if !player.isPlaying {
-                player.currentTime = 0
-                guard player.play() else {
-                    throw NSError(domain: "Gesture2Audio.Sound", code: 2, userInfo: [
-                        NSLocalizedDescriptionKey: "AVAudioPlayer refused to start \(name).wav."
-                    ])
-                }
-            }
-            lastError = ""
-            refreshPublishedState()
-        } catch {
-            recordError("Audio playback failed for \(name): \(error.localizedDescription)")
-            refreshPublishedState()
-        }
+    private func primeAudio() {
+        run(script: "window.g2a && window.g2a.primeAudio && window.g2a.primeAudio();")
     }
 
-    private func player(for name: String) throws -> AVAudioPlayer {
-        if let existing = players[name] {
-            applyMood(currentMood, to: existing, name: name)
-            return existing
-        }
-
-        guard let url = Bundle.main.url(forResource: name, withExtension: "wav") else {
-            throw NSError(domain: "Gesture2Audio.Sound", code: 1, userInfo: [
-                NSLocalizedDescriptionKey: "Bundled \(name).wav was not found."
-            ])
-        }
-
-        let player = try AVAudioPlayer(contentsOf: url)
-        player.numberOfLoops = -1
-        player.enableRate = true
-        applyMood(currentMood, to: player, name: name)
-        players[name] = player
-        return player
+    private func escapedJavaScriptString(_ value: String) -> String {
+        value
+            .replacingOccurrences(of: "\\", with: "\\\\")
+            .replacingOccurrences(of: "'", with: "\\'")
     }
+}
 
-    private func applyMoodToPlayers() {
-        for (name, player) in players {
-            applyMood(currentMood, to: player, name: name)
-        }
-        refreshPublishedState()
-    }
+final class BundleAudioSchemeHandler: NSObject, WKURLSchemeHandler {
+    func webView(_ webView: WKWebView, start urlSchemeTask: any WKURLSchemeTask) {
+        let url = urlSchemeTask.request.url
+        let resourceName = url?.deletingPathExtension().lastPathComponent ?? ""
+        let pathExtension = url?.pathExtension ?? ""
+        let resourceExtension = pathExtension.isEmpty ? "wav" : pathExtension
 
-    private func applyMood(_ mood: SoundscapeMood, to player: AVAudioPlayer, name: String) {
-        switch mood {
-        case .happy:
-            player.rate = name == "birds" ? 1.22 : 1.12
-            player.volume = name == "birds" ? 0.96 : 0.74
-            player.pan = name == "birds" ? 0.22 : 0.10
-        case .neutral:
-            player.rate = 1.0
-            player.volume = targetVolume(for: name)
-            player.pan = 0
-        case .sad:
-            player.rate = name == "birds" ? 0.76 : 0.84
-            player.volume = name == "birds" ? 0.46 : 0.52
-            player.pan = name == "birds" ? -0.18 : -0.08
-        }
-    }
-
-    private func targetVolume(for name: String) -> Float {
-        switch name {
-        case "birds":
-            return 0.72
-        case "river":
-            return 0.58
-        default:
-            return 0.65
-        }
-    }
-
-    private func refreshPublishedState() {
-        let activeSourceNames = players.compactMap { key, player in
-            player.isPlaying ? key : nil
-        }.sorted()
-        activeLayers = displayLayers(for: activeSourceNames)
-        statusText = activeLayers.isEmpty ? "No sources active" : "\(activeLayers.joined(separator: " + ")) playing"
-        syncVisualization()
-    }
-
-    private func displayLayers(for sourceNames: [String]) -> [String] {
-        sourceNames.map {
-            switch $0 {
-            case "birds":
-                return "Bird chirps"
-            case "river":
-                return "River sound"
-            default:
-                return $0.capitalized
-            }
-        }
-    }
-
-    private func syncVisualization() {
-        let sourceNames = players.compactMap { key, player in
-            player.isPlaying ? key : nil
-        }.sorted()
-        let payload: [String: Any] = [
-            "mood": currentMood.rawValue,
-            "activeSources": sourceNames,
-            "statusText": statusText,
-        ]
-
-        guard let data = try? JSONSerialization.data(withJSONObject: payload),
-              let json = String(data: data, encoding: .utf8) else {
+        guard !resourceName.isEmpty,
+              let resourceURL = Bundle.main.url(forResource: resourceName, withExtension: resourceExtension) else {
+            let response = HTTPURLResponse(
+                url: urlSchemeTask.request.url ?? URL(string: "g2audio://missing")!,
+                statusCode: 404,
+                httpVersion: "HTTP/1.1",
+                headerFields: ["Content-Type": "text/plain"]
+            )!
+            urlSchemeTask.didReceive(response)
+            urlSchemeTask.didReceive(Data("missing audio resource".utf8))
+            urlSchemeTask.didFinish()
             return
         }
 
-        run(script: "window.g2aNativeBridge && window.g2aNativeBridge.update(\(json));")
+        do {
+            let data = try Data(contentsOf: resourceURL)
+            let mimeType = resourceExtension.lowercased() == "wav" ? "audio/wav" : "application/octet-stream"
+            let response = URLResponse(
+                url: urlSchemeTask.request.url ?? resourceURL,
+                mimeType: mimeType,
+                expectedContentLength: data.count,
+                textEncodingName: nil
+            )
+            urlSchemeTask.didReceive(response)
+            urlSchemeTask.didReceive(data)
+            urlSchemeTask.didFinish()
+        } catch {
+            urlSchemeTask.didFailWithError(error)
+        }
     }
+
+    func webView(_ webView: WKWebView, stop urlSchemeTask: any WKURLSchemeTask) {}
 }
 
 struct SoundscapeWebView: UIViewRepresentable {
@@ -269,6 +225,7 @@ struct SoundscapeWebView: UIViewRepresentable {
         configuration.allowsInlineMediaPlayback = true
         configuration.mediaTypesRequiringUserActionForPlayback = []
         configuration.userContentController.add(context.coordinator, name: "soundscapeBridge")
+        configuration.setURLSchemeHandler(context.coordinator.assetHandler, forURLScheme: "g2audio")
 
         let webView = WKWebView(frame: .zero, configuration: configuration)
         webView.isOpaque = false
@@ -279,6 +236,10 @@ struct SoundscapeWebView: UIViewRepresentable {
         controller.attach(webView: webView)
 
         if let url = Bundle.main.url(forResource: "soundscape_embed", withExtension: "html") {
+            controller.configureAssetURLs(
+                birds: URL(string: "g2audio://bundle/birds.wav")!,
+                river: URL(string: "g2audio://bundle/river.wav")!
+            )
             webView.loadFileURL(url, allowingReadAccessTo: url.deletingLastPathComponent())
         }
 
@@ -291,13 +252,14 @@ struct SoundscapeWebView: UIViewRepresentable {
 
     final class Coordinator: NSObject, WKNavigationDelegate, WKScriptMessageHandler {
         private let controller: SoundscapeWebController
+        let assetHandler = BundleAudioSchemeHandler()
 
         init(controller: SoundscapeWebController) {
             self.controller = controller
         }
 
         func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
-            webView.evaluateJavaScript("window.g2aNativeBridge && window.g2aNativeBridge.notifyReady && window.g2aNativeBridge.notifyReady();")
+            webView.evaluateJavaScript("window.g2a && window.g2a.notifyReady && window.g2a.notifyReady();")
         }
 
         func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
@@ -319,7 +281,7 @@ struct SoundscapeWebView: UIViewRepresentable {
             }
 
             if type == "error" {
-                let message = payload["message"] as? String ?? "soundscape preview error"
+                let message = payload["message"] as? String ?? "sound engine error"
                 controller.recordError(message)
             }
         }
