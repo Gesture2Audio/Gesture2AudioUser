@@ -157,3 +157,12 @@ For every future audio-related change:
 - added a `WKURLSchemeHandler`-based loading path for bundled WAV files
 - kept iOS audio-session setup in Swift
 - documented that future changes must preserve the engineer-tuned frequency and speed manipulations unless explicitly approved
+- refined the `WKURLSchemeHandler` path after web research:
+  - the main HTML page and the WAV assets now load from the same `g2audio://` custom origin
+  - the scheme handler now returns `HTTPURLResponse` objects with explicit `Content-Type` and `Content-Length` headers
+  - this change was made to avoid `fetch()` failures caused by status `0` / `response.ok === false` behavior and mixed-origin access-control problems in `WKWebView`
+- added an HTML-side audio unlock flow for `WKWebView`:
+  - the page now asks for one real tap inside the preview to unlock the WebAudio context
+  - a silent inline media element is used during that tap to help satisfy iOS media activation rules
+  - this was added because native Swift button taps do not reliably count as WebAudio user gestures inside the embedded web view
+- engineer-tuned DSP values in `soundscape_embed.html` were preserved

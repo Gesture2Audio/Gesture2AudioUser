@@ -173,18 +173,22 @@ final class SoundscapeWebController: NSObject, ObservableObject {
 
 final class BundleAudioSchemeHandler: NSObject, WKURLSchemeHandler {
     func webView(_ webView: WKWebView, start urlSchemeTask: any WKURLSchemeTask) {
-        let url = urlSchemeTask.request.url
-        let resourceName = url?.deletingPathExtension().lastPathComponent ?? ""
-        let pathExtension = url?.pathExtension ?? ""
+        let requestURL = urlSchemeTask.request.url ?? URL(string: "g2audio://app/missing")!
+        let resourceName = requestURL.deletingPathExtension().lastPathComponent
+        let pathExtension = requestURL.pathExtension
         let resourceExtension = pathExtension.isEmpty ? "wav" : pathExtension
 
         guard !resourceName.isEmpty,
               let resourceURL = Bundle.main.url(forResource: resourceName, withExtension: resourceExtension) else {
             let response = HTTPURLResponse(
-                url: urlSchemeTask.request.url ?? URL(string: "g2audio://missing")!,
+                url: requestURL,
                 statusCode: 404,
                 httpVersion: "HTTP/1.1",
-                headerFields: ["Content-Type": "text/plain"]
+                headerFields: [
+                    "Content-Type": "text/plain; charset=utf-8",
+                    "Content-Length": "\(Data("missing audio resource".utf8).count)",
+                    "Access-Control-Allow-Origin": "*",
+                ]
             )!
             urlSchemeTask.didReceive(response)
             urlSchemeTask.didReceive(Data("missing audio resource".utf8))
@@ -194,13 +198,30 @@ final class BundleAudioSchemeHandler: NSObject, WKURLSchemeHandler {
 
         do {
             let data = try Data(contentsOf: resourceURL)
-            let mimeType = resourceExtension.lowercased() == "wav" ? "audio/wav" : "application/octet-stream"
-            let response = URLResponse(
-                url: urlSchemeTask.request.url ?? resourceURL,
-                mimeType: mimeType,
-                expectedContentLength: data.count,
-                textEncodingName: nil
-            )
+            let mimeType: String
+            switch resourceExtension.lowercased() {
+            case "wav":
+                mimeType = "audio/wav"
+            case "html":
+                mimeType = "text/html; charset=utf-8"
+            case "js":
+                mimeType = "application/javascript; charset=utf-8"
+            case "json":
+                mimeType = "application/json; charset=utf-8"
+            default:
+                mimeType = "application/octet-stream"
+            }
+            let response = HTTPURLResponse(
+                url: requestURL,
+                statusCode: 200,
+                httpVersion: "HTTP/1.1",
+                headerFields: [
+                    "Content-Type": mimeType,
+                    "Content-Length": "\(data.count)",
+                    "Access-Control-Allow-Origin": "*",
+                    "Cache-Control": "no-cache",
+                ]
+            )!
             urlSchemeTask.didReceive(response)
             urlSchemeTask.didReceive(data)
             urlSchemeTask.didFinish()
@@ -235,13 +256,11 @@ struct SoundscapeWebView: UIViewRepresentable {
         webView.navigationDelegate = context.coordinator
         controller.attach(webView: webView)
 
-        if let url = Bundle.main.url(forResource: "soundscape_embed", withExtension: "html") {
-            controller.configureAssetURLs(
-                birds: URL(string: "g2audio://bundle/birds.wav")!,
-                river: URL(string: "g2audio://bundle/river.wav")!
-            )
-            webView.loadFileURL(url, allowingReadAccessTo: url.deletingLastPathComponent())
-        }
+        controller.configureAssetURLs(
+            birds: URL(string: "g2audio://app/birds.wav")!,
+            river: URL(string: "g2audio://app/river.wav")!
+        )
+        webView.load(URLRequest(url: URL(string: "g2audio://app/soundscape_embed.html")!))
 
         return webView
     }

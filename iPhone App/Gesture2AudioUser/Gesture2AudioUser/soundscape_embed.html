@@ -51,6 +51,18 @@ body{
 }
 .viz-wrap{position:relative;flex:1;min-height:110px}
 canvas{display:block;width:100%;height:100%}
+.unlock{
+  position:absolute;inset:0;
+  display:flex;align-items:center;justify-content:center;
+  background:rgba(6,12,8,0.24);
+  color:var(--text);
+  font-size:12px;font-weight:600;letter-spacing:0.04em;
+  transition:opacity 0.25s ease;
+}
+.unlock.hidden{
+  opacity:0;
+  pointer-events:none;
+}
 .viz-label{
   position:absolute;bottom:8px;right:12px;
   font-size:11px;letter-spacing:0.1em;text-transform:uppercase;
@@ -83,6 +95,7 @@ canvas{display:block;width:100%;height:100%}
   </div>
   <div class="viz-wrap">
     <canvas id="viz" height="120"></canvas>
+    <div class="unlock" id="unlock">Tap here once to enable audio</div>
     <span class="viz-label">waveform</span>
   </div>
   <div class="status-bar">
@@ -139,6 +152,11 @@ class SoundEngine {
   async init() {
     if (!this.ctx) {
       this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+      if (navigator.audioSession && navigator.audioSession.type !== "playback") {
+        try {
+          navigator.audioSession.type = "playback";
+        } catch (_) {}
+      }
       this.analyser = this.ctx.createAnalyser();
       this.analyser.fftSize = 2048;
       this.analyser.smoothingTimeConstant = 0.85;
@@ -355,7 +373,12 @@ class SoundEngine {
   async primeAudio() {
     try {
       await this.init();
-      postBridgeMessage({ type: "state", activeSources: Array.from(this.activeSounds), mood: this.mood, statusText: this.activeSounds.size > 0 ? "Audio ready" : "Audio primed" });
+      postBridgeMessage({
+        type: "state",
+        activeSources: Array.from(this.activeSounds),
+        mood: this.mood,
+        statusText: this.activeSounds.size > 0 ? "Audio ready" : (audioUnlocked ? "Audio primed" : "Tap preview to enable audio")
+      });
     } catch (error) {
       postBridgeMessage({
         type: "error",
@@ -384,6 +407,11 @@ const filterInfo = document.getElementById("filter-info");
 const moodName = document.getElementById("mood-name");
 const canvas = document.getElementById("viz");
 const ctx2d = canvas.getContext("2d");
+const unlockNode = document.getElementById("unlock");
+
+let audioUnlocked = false;
+let unlockAttemptInFlight = false;
+let silentUnlockAudio = null;
 
 function postBridgeMessage(payload) {
   if (
@@ -402,6 +430,56 @@ function updateStatusUI(mood, activeSet, statusText) {
   filterInfo.innerHTML = `Filter ${DSP_BADGES[mood] || DSP_BADGES.neutral}`;
   moodName.textContent = MOOD_TITLES[mood] || MOOD_TITLES.neutral;
   moodName.style.color = MOOD_COLORS[mood] || MOOD_COLORS.neutral;
+  unlockNode.classList.toggle("hidden", audioUnlocked);
+}
+
+function computedStatusText() {
+  if (engine.activeSounds.size > 0) {
+    return `${Array.from(engine.activeSounds).map(name => SOURCE_STATUS[name] || name).join(" + ")} playing`;
+  }
+  return audioUnlocked ? "No sources active" : "Tap preview to enable audio";
+}
+
+function ensureSilentUnlockAudio() {
+  if (silentUnlockAudio) {
+    return silentUnlockAudio;
+  }
+  silentUnlockAudio = document.createElement("audio");
+  silentUnlockAudio.setAttribute("playsinline", "true");
+  silentUnlockAudio.preload = "auto";
+  silentUnlockAudio.src = "data:audio/mp4;base64,AAAAHGZ0eXBpc29tAAAAAGlzb21pc28yYXA0MQAAAD1tb292AAAAbG12aGQAAAAAAAAAAAAAAAAAAAPoAAAD6AABAAABAAAAAAAAAAAAAAAAAQAAAAAAAAAAAAAAAAAAAAEAAAAAAAAAAAAAAAAAAEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACAAACxHRyYWsAAABcdGtoZAAAAAMAAAAAAAAAAAAAAAABAAAAAAAAA+gAAAAAAAAAAAAAAAAAAAAAAAEAAAAAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAABAAAAAAAABAAAAAAAkZWR0cwAAABxlbHN0AAAAAAAAAAEAAAPoAAAQAAABAAAAAAJtbWRpYQAAACBtZGhkAAAAAAAAAAAAAAAAAAAyAAAAMgBVxAAAAAAALWhkbHIAAAAAAAAAAHNvdW4AAAAAAAAAAAAAAABTb3VuZEhhbmRsZXIAAAACc21pbmYAAAAUc21oZAAAAAAAAAAAAAAAABRkaW5mAAAAHGRyZWYAAAAAAAAAAQAAAAx1cmwgAAAAAQAAAjRzdGJsAAAArHN0c2QAAAAAAAAAAQAAAJxtcDRhAAAAAAAAAAEAAAAAAAAAAAABAAIAQAAAAAAAMgAAAAAAACRlc2RzAAAAAAMgAICAgAAAAAEHCAgIAQACAAgIAAAAFQYH//8VCAgIAAAAAAABAAABAAACxwAAAbJzdHRzAAAAAAAAAAEAAAABAAIAMHN0c2MAAAAAAAAAAQAAAAEAAAABAAAAAXN0c3oAAAAAAAAAAAAAAAEAAAAUc3RjbwAAAAAAAAABAAAArAAAABRidWR0YQAAAFptZXRhAAAAAAAAACFoZGxyAAAAAAAAAABtZGlyYXBwbAAAAAAAAAAAAAAAAC1pbHN0AAAAJal0b28AAAAdZGF0YQAAAAEAAAAATGF2ZjU4LjQ1LjEwMA==";
+  return silentUnlockAudio;
+}
+
+async function unlockAudio() {
+  if (audioUnlocked || unlockAttemptInFlight) {
+    return;
+  }
+  unlockAttemptInFlight = true;
+  try {
+    await engine.init();
+    const audio = ensureSilentUnlockAudio();
+    try {
+      audio.currentTime = 0;
+    } catch (_) {}
+    try {
+      await audio.play();
+      audio.pause();
+    } catch (_) {}
+    if (engine.ctx && engine.ctx.state === "suspended") {
+      await engine.ctx.resume();
+    }
+    audioUnlocked = !!(engine.ctx && engine.ctx.state === "running");
+    engine.reportState();
+  } catch (error) {
+    postBridgeMessage({
+      type: "error",
+      message: error && error.message ? error.message : "Audio unlock failed"
+    });
+  } finally {
+    unlockAttemptInFlight = false;
+    updateStatusUI(engine.mood, engine.activeSounds, computedStatusText());
+  }
 }
 
 function resizeCanvas() {
@@ -489,7 +567,7 @@ function vizLoop() {
 
 window.g2a = {
   notifyReady() {
-    updateStatusUI("neutral", new Set(), "No sources active");
+    updateStatusUI("neutral", new Set(), computedStatusText());
     postBridgeMessage({ type: "ready" });
   },
   primeAudio() {
@@ -511,7 +589,17 @@ window.g2a = {
 
 resizeCanvas();
 window.addEventListener("resize", resizeCanvas);
-updateStatusUI("neutral", new Set(), "No sources active");
+["touchstart", "pointerdown", "click"].forEach(eventName => {
+  unlockNode.addEventListener(eventName, () => {
+    unlockAudio().catch(() => {});
+  }, { passive: true });
+  document.addEventListener(eventName, () => {
+    if (!audioUnlocked) {
+      unlockAudio().catch(() => {});
+    }
+  }, { passive: true });
+});
+updateStatusUI("neutral", new Set(), computedStatusText());
 vizLoop();
 </script>
 </body>
