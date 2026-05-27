@@ -72,10 +72,18 @@ final class SoundscapeWebController: NSObject, ObservableObject {
     func updateState(activeSources: [String], mood: String?, statusText: String?) {
         activeLayers = activeSources.map {
             switch $0 {
+            case "leaves":
+                return "Rustling leaves"
+            case "forest":
+                return "Forest sound"
             case "birds":
                 return "Bird chirps"
+            case "ocean":
+                return "Ocean waves"
             case "river":
                 return "River sound"
+            case "rain":
+                return "Rain sound"
             default:
                 return $0.capitalized
             }
@@ -116,10 +124,18 @@ final class SoundscapeWebController: NSObject, ObservableObject {
         primeAudio()
         clearError()
         switch label {
+        case "leaf":
+            run(script: "window.g2a && window.g2a.ensureSound('leaves');")
+        case "tree":
+            run(script: "window.g2a && window.g2a.ensureSound('forest');")
         case "bird":
             run(script: "window.g2a && window.g2a.ensureSound('birds');")
+        case "ocean":
+            run(script: "window.g2a && window.g2a.ensureSound('ocean');")
         case "river":
             run(script: "window.g2a && window.g2a.ensureSound('river');")
+        case "rain":
+            run(script: "window.g2a && window.g2a.ensureSound('rain');")
         default:
             break
         }

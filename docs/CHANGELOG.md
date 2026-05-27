@@ -93,3 +93,60 @@ Format:
 - Files: `iPhone App/Gesture2AudioUser/Gesture2AudioUser/ContentView.swift`, `iPhone App/Gesture2AudioUser/Gesture2AudioUser/SoundscapeWebController.swift`, `iPhone App/Gesture2AudioUser/Gesture2AudioUser/soundscape_embed.html`, `docs/CHANGELOG.md`.
 - Validation: Confirmed the preview card now reserves enough vertical space for the full HTML panel. Updated the HTML engine to load audio from explicit bundle URLs and surface load/init failures back to Swift, which can now display the exact error in the app instead of silently showing no active layers.
 - Notes: The pulled remote update was `d0dae22 initializer values fixed`, which only changed a single initializer value and did not affect the cropped preview or audio-loading path.
+
+## 2026-05-22 - Clean May 21 Multi-Participant Dataset
+
+- Changed: Added a reproducible cleaning pass for `New_ML/IMU2IMG-2/New Data`, plus three new dataset artifacts: a compact cleaned manifest, a full cleaned training JSON with embedded frames, and a cleaning report that records dropped samples.
+- Reason: The new collection contains five participant folders and needs the same kind of training-data cleanup that was done for the earlier dataset before it can be used safely for model work.
+- Files: `scripts/clean_new_data.py`, `data/new_data_valid_samples.json`, `data/new_data_training_full.json`, `data/new_data_cleaning_report.json`, `README.md`, `docs/CHANGELOG.md`.
+- Validation: Scanned all 847 JSON files, confirmed one consistent schema, 3-second duration, and 50 Hz sampling throughout. Kept 844 samples and dropped 3 shortened tree captures below 140 frames. Final kept counts: `bird 148`, `leaf 133`, `ocean 141`, `rain 143`, `river 146`, `tree 133`.
+- Notes: The three dropped files were `20260521_133252_day_01_tree_D7943879.json` (Cerella, 122 frames), `20260521_174122_day_01_tree_BA99C760.json` (Hong, 131 frames), and `20260521_115436_day_01_tree_EA8A9BDE.json` (Rakesh, 108 frames). Everything else was inside the normal timing band and kept.
+
+## 2026-05-22 - Build Combined 7-Participant Training File
+
+- Changed: Added one merged training JSON under `data/New training set` that combines the original cleaned 2-participant dataset with the cleaned May 21 5-participant dataset into a single normalized schema.
+- Reason: Model training now needs one consolidated source file instead of separate old and new cleaned datasets.
+- Files: `scripts/build_combined_training_set.py`, `data/New training set/combined_training_samples_full.json`, `README.md`, `docs/CHANGELOG.md`.
+- Validation: Combined `277` original samples with `844` new cleaned samples into `1121` total valid samples across `7` participants and `169,135` IMU frames. Final merged label counts: `leaf 178`, `tree 182`, `bird 192`, `ocean 183`, `river 193`, `rain 193`.
+- Notes: The merged file normalizes both source datasets into one common sample schema with `dataset_source`, `sample_id`, participant metadata, label metadata, and embedded IMU frames.
+
+## 2026-05-25 - Add Six-Gesture Cleaning And Baseline Training
+
+- Changed: Added a reproducible six-gesture cleanup and model-evaluation script, generated a stricter cleaned v2 training set, saved a metrics report, and trained a sklearn PCA/logistic-regression model artifact.
+- Reason: The current goal is to improve the predefined six-gesture model without collecting more participant data.
+- Files: `scripts/clean_and_train_six_gestures.py`, `data/cleaned_training_v2/cleaned_training_samples_full.json`, `outputs/six_gesture_cleaning_report.json`, `models/six_gesture_logreg_pca_model.pkl`, `README.md`, `docs/CHANGELOG.md`.
+- Validation: Started from `1121` combined samples and kept `940` after motion-quality and class-outlier filtering. The best random-holdout baseline reached `0.840` with ExtraTrees on the cleaned set. The best participant-held-out result improved from `0.457` to `0.480` with PCA/logistic regression.
+- Notes: Cleaning helps, but the participant-held-out result is still not strong enough for a robust new-user claim. The remaining gap is mainly participant drawing-style variation rather than simple corrupt files.
+
+## 2026-05-25 - Train Final Six-Gesture Model
+
+- Changed: Added a final six-gesture trainer that compares PCA/logistic regression, linear SVC, RBF SVC, ridge classifier, ExtraTrees, and random forest, then saves the model selected by participant-held-out macro F1.
+- Reason: The project needs a trained six-class model with full metrics, not only a cleaning report.
+- Files: `scripts/train_six_gesture_model.py`, `outputs/six_gesture_model_report.json`, `models/six_gesture_final_model.pkl`, `README.md`, `docs/CHANGELOG.md`.
+- Validation: Trained on `data/cleaned_training_v2/cleaned_training_samples_full.json` with `940` samples and `652` engineered features. Selected `pca_logistic_regression`. Random holdout: accuracy `0.723`, macro F1 `0.724`, weighted F1 `0.724`. Leave-one-participant-out: accuracy `0.480`, macro F1 `0.478`, weighted F1 `0.479`.
+- Notes: ExtraTrees had the strongest random-holdout result at accuracy `0.846` and macro F1 `0.847`, but it generalized worse to unseen participants with leave-one-participant-out macro F1 `0.391`.
+
+## 2026-05-25 - Add Six-Gesture Training Notebook
+
+- Changed: Added a visual-first Jupyter notebook version of the six-gesture model training flow with cells for loading data, feature extraction, model comparison, F1 reporting, participant-held-out evaluation, confusion matrices, normalized confusion matrices, metric heatmaps, model/report saving, and final combined dashboards.
+- Reason: The model training should be reviewable and runnable as a notebook rather than only as a Python script.
+- Files: `notebooks/six_gesture_model_training.ipynb`, `README.md`, `docs/CHANGELOG.md`.
+- Validation: Parsed all code cells successfully as Python and verified the notebook contains the visual-first sections on disk: dataset distribution charts, model comparison charts, selected-model visual analysis, confusion matrix plots, held-out participant plot, and the final combined dashboard.
+- Notes: The notebook keeps the same selected-model logic as `scripts/train_six_gesture_model.py`: choose the model with the best leave-one-participant-out macro F1. The final visual summary plots model comparison, selected-model overall metrics, class precision/recall/F1, held-out participant scores, raw confusion, and normalized confusion together.
+- Fix: Moved the plotting helper cell near the top of the notebook so chart cells can run in order without `NameError: style_axes is not defined`.
+
+## 2026-05-27 - Improve Six-Gesture LOPO Demo Model
+
+- Changed: Added a `SelectKBest` feature-selection logistic-regression candidate to the six-gesture training flow, regenerated the final model artifact, and aligned the notebook with the selected model.
+- Reason: The next supervisor demo needs the strongest honest six-gesture result from the current dataset, with the LOPO confusion matrix as the main evidence.
+- Files: `scripts/train_six_gesture_model.py`, `notebooks/six_gesture_model_training.ipynb`, `outputs/six_gesture_model_report.json`, `models/six_gesture_final_model.pkl`, `README.md`, `docs/CHANGELOG.md`.
+- Validation: Re-ran six-gesture training on `data/cleaned_training_v2/cleaned_training_samples_full.json`. Selected model: `kbest200_logistic_regression`. Random holdout: `0.851` accuracy and `0.852` macro F1. LOPO: `0.520` accuracy and `0.522` macro F1.
+- Notes: The model is better for the demo than the earlier PCA/logistic baseline, but LOPO still shows user-style drift. Rain and tree are the strongest classes; leaf, bird, river, and ocean still share several confusions.
+
+## 2026-05-27 - Integrate Six-Gesture Model Into iPhone App
+
+- Changed: Exported the selected six-gesture sklearn pipeline to an iPhone-readable JSON artifact, replaced the app's old bird/fish classifier with six-class on-device inference, updated the UI for all six gestures, and extended the embedded HTML engine to activate six audio layers.
+- Reason: The user app needs to demonstrate the full predefined six-gesture pipeline, not only the earlier bird/fish prototype.
+- Files: `scripts/export_six_gesture_ios_model.py`, `iPhone App/Gesture2AudioUser/Gesture2AudioUser/six_gesture_model.json`, `iPhone App/Gesture2AudioUser/Gesture2AudioUser/GesturePipeline.swift`, `iPhone App/Gesture2AudioUser/Gesture2AudioUser/ContentView.swift`, `iPhone App/Gesture2AudioUser/Gesture2AudioUser/SoundscapeWebController.swift`, `iPhone App/Gesture2AudioUser/Gesture2AudioUser/soundscape_embed.html`, `docs/IPHONE_PIPELINE.md`, `README.md`, `docs/CHANGELOG.md`.
+- Validation: Verified the exported JSON has `652` scaler features, `200` selected feature indices, six coefficient rows, and six intercepts. Recomputed predictions from the exported JSON in Python and confirmed they match the sklearn pipeline for sampled records.
+- Notes: Bird and river still use the bundled WAV assets. Leaf, tree, ocean, and rain use generated HTML-engine layers for the demo until final sound files are added.

@@ -17,6 +17,20 @@ Training data files:
 
 - `data/valid_samples.json`: compact manifest with approved samples and source file paths.
 - `data/training_samples_full.json`: single self-contained JSON with the approved samples and embedded IMU frame values.
+- `data/new_data_valid_samples.json`: cleaned manifest for the May 21 multi-participant collection.
+- `data/new_data_training_full.json`: full cleaned May 21 dataset with embedded IMU frames.
+- `data/new_data_cleaning_report.json`: dropped-sample report for the May 21 cleaning pass.
+- `data/New training set/combined_training_samples_full.json`: merged training file containing the original 2-participant set plus the cleaned May 21 5-participant set.
+- `data/cleaned_training_v2/cleaned_training_samples_full.json`: stricter six-gesture training set after motion-quality and class-outlier filtering.
+
+Model analysis outputs:
+
+- `notebooks/six_gesture_model_training.ipynb`: notebook version of the six-class model training and evaluation flow.
+- `outputs/six_gesture_cleaning_report.json`: cleaning decisions and original-vs-cleaned six-class evaluation metrics.
+- `models/six_gesture_logreg_pca_model.pkl`: sklearn logistic-regression/PCA model trained on the cleaned v2 six-gesture dataset.
+- `outputs/six_gesture_model_report.json`: final six-class model comparison with accuracy, precision, recall, F1, confusion matrices, and participant-held-out scores. Current selected model: `kbest200_logistic_regression`.
+- `models/six_gesture_final_model.pkl`: selected final six-class sklearn model trained on the cleaned v2 dataset. Current LOPO macro F1 is `0.522`, and random holdout macro F1 is `0.852`.
+- `iPhone App/Gesture2AudioUser/Gesture2AudioUser/six_gesture_model.json`: iPhone-readable export of the selected six-class model, including scaler values, selected feature indices, and logistic-regression coefficients.
 
 iPhone/watch demo app:
 
@@ -26,4 +40,5 @@ Current live audio path:
 
 - Apple Watch capture -> iPhone classification -> embedded HTML sound engine in `WKWebView`
 - `happy / neutral / sad` mood buttons drive the HTML DSP chain
-- bundled bird and river WAV assets are served to the page through a custom `g2audio://` URL-scheme handler
+- six supported gestures are `leaf`, `tree`, `bird`, `ocean`, `river`, and `rain`
+- bundled bird and river WAV assets are served to the page through a custom `g2audio://` URL-scheme handler; leaf, tree, ocean, and rain layers are generated inside the HTML engine for the six-gesture demo

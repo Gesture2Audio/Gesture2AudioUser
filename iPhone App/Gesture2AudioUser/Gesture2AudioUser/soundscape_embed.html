@@ -110,8 +110,14 @@ canvas{display:block;width:100%;height:100%}
 <script>
 const FADE_IN = 1.4;
 const FADE_OUT = 1.2;
-const BIRD_TARGET_GAIN = 0.72;
-const RIVER_TARGET_GAIN = 0.58;
+const TARGET_GAINS = {
+  leaves: 0.42,
+  forest: 0.48,
+  birds: 0.72,
+  ocean: 0.54,
+  river: 0.58,
+  rain: 0.44
+};
 const DSP_BADGES = {
   happy: "<span>+HiShelf</span><span>+Mid</span><span>+Pres</span>",
   sad: "<span>LowPass</span><span>+Bass</span><span>-Bright</span>",
@@ -128,9 +134,14 @@ const MOOD_TITLES = {
   neutral: "Neutral"
 };
 const SOURCE_STATUS = {
+  leaves: "Leaves",
+  forest: "Forest",
   birds: "Birds",
-  river: "River"
+  ocean: "Ocean",
+  river: "River",
+  rain: "Rain"
 };
+const GENERATED_SOURCES = new Set(["leaves", "forest", "ocean", "rain"]);
 const MOOD_COLORS = {
   happy: "#d4a843",
   sad: "#5b8fc4",
@@ -180,8 +191,39 @@ class SoundEngine {
       : null;
     const candidates = [configuredURL, `${name}.wav`, `audio/${name}.wav`]
       .filter((candidate, index, values) => candidate && values.indexOf(candidate) === index);
+    if (GENERATED_SOURCES.has(name) && !configuredURL) {
+      this.buffers[name] = this.generateBuffer(name);
+      return this.buffers[name];
+    }
     this.loading[name] = this.loadFirstAvailableBuffer(name, candidates);
     return this.loading[name];
+  }
+
+  generateBuffer(name) {
+    const duration = 4;
+    const sampleRate = this.ctx.sampleRate;
+    const frameCount = Math.floor(duration * sampleRate);
+    const buffer = this.ctx.createBuffer(1, frameCount, sampleRate);
+    const data = buffer.getChannelData(0);
+
+    for (let i = 0; i < frameCount; i++) {
+      const t = i / sampleRate;
+      const noise = Math.random() * 2 - 1;
+      if (name === "leaves") {
+        const flutter = 0.35 + 0.65 * Math.max(0, Math.sin(t * 17) * Math.sin(t * 3.3));
+        data[i] = noise * flutter * 0.34;
+      } else if (name === "forest") {
+        data[i] = (noise * 0.18) + Math.sin(t * 2 * Math.PI * 180) * 0.018 + Math.sin(t * 2 * Math.PI * 260) * 0.012;
+      } else if (name === "ocean") {
+        const swell = 0.45 + 0.55 * Math.sin(t * 2 * Math.PI * 0.23);
+        data[i] = noise * swell * 0.42;
+      } else if (name === "rain") {
+        const drops = Math.random() > 0.965 ? 0.8 : 0.16;
+        data[i] = noise * drops * 0.38;
+      }
+    }
+
+    return buffer;
   }
 
   async loadFirstAvailableBuffer(name, candidates) {
@@ -281,7 +323,7 @@ class SoundEngine {
 
     const chain = this.buildFilters(mood);
     const gain = this.ctx.createGain();
-    const target = name === "birds" ? BIRD_TARGET_GAIN : RIVER_TARGET_GAIN;
+    const target = TARGET_GAINS[name] || 0.5;
     gain.gain.setValueAtTime(0.0001, this.ctx.currentTime);
     gain.gain.exponentialRampToValueAtTime(target, this.ctx.currentTime + FADE_IN);
 

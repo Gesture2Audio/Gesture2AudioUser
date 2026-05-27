@@ -9,6 +9,7 @@ struct ContentView: View {
                 VStack(alignment: .leading, spacing: 18) {
                     header
                     pipelineCard
+                    gestureSetCard
                     predictionCard
                     moodCard
                     soundscapePreviewCard
@@ -41,7 +42,7 @@ struct ContentView: View {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Live IMU Gesture Demo")
                         .font(.title2.weight(.semibold))
-                    Text("Bird and fish classification with layered audio output.")
+                    Text("Six-gesture classification with layered, mood-reactive audio.")
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                 }
@@ -125,6 +126,36 @@ struct ContentView: View {
         }
     }
 
+    private var gestureSetCard: some View {
+        card {
+            VStack(alignment: .leading, spacing: 14) {
+                sectionTitle("Gesture Set", icon: "hand.draw")
+                LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible()), GridItem(.flexible())], spacing: 10) {
+                    ForEach(session.labels, id: \.self) { label in
+                        HStack(spacing: 8) {
+                            Image(systemName: icon(for: label))
+                                .font(.system(size: 15, weight: .semibold))
+                                .foregroundStyle(color(for: label))
+                                .frame(width: 22)
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(GestureClassifier.displayName(for: label))
+                                    .font(.caption.weight(.semibold))
+                                Text(GestureClassifier.soundLayer(for: label))
+                                    .font(.caption2)
+                                    .foregroundStyle(.secondary)
+                                    .lineLimit(1)
+                                    .minimumScaleFactor(0.75)
+                            }
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(10)
+                        .background(Color(.tertiarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 8))
+                    }
+                }
+            }
+        }
+    }
+
     private var soundscapePreviewCard: some View {
         card {
             VStack(alignment: .leading, spacing: 14) {
@@ -142,13 +173,14 @@ struct ContentView: View {
                 sectionTitle("Latest Detection", icon: "scope")
 
                 if let prediction = session.lastPrediction {
+                    let accent = color(for: prediction.label)
                     HStack(alignment: .center, spacing: 14) {
                         ZStack {
                             Circle()
-                                .fill(prediction.label == "bird" ? Color.teal.opacity(0.16) : Color.blue.opacity(0.16))
-                            Image(systemName: prediction.label == "bird" ? "bird.fill" : "drop.fill")
+                                .fill(accent.opacity(0.16))
+                            Image(systemName: icon(for: prediction.label))
                                 .font(.system(size: 30, weight: .semibold))
-                                .foregroundStyle(prediction.label == "bird" ? .teal : .blue)
+                                .foregroundStyle(accent)
                         }
                         .frame(width: 64, height: 64)
 
@@ -159,7 +191,7 @@ struct ContentView: View {
                                 .font(.subheadline)
                                 .foregroundStyle(.secondary)
                             ProgressView(value: prediction.confidence)
-                                .tint(prediction.label == "bird" ? .teal : .blue)
+                                .tint(accent)
                         }
 
                         Spacer()
@@ -176,7 +208,7 @@ struct ContentView: View {
                         VStack(alignment: .leading, spacing: 4) {
                             Text("Waiting for a captured gesture")
                                 .font(.headline)
-                            Text("Shake the watch, draw bird or fish, then wait for the result.")
+                            Text("Shake the watch, draw one of the six gestures, then wait for the result.")
                                 .font(.subheadline)
                                 .foregroundStyle(.secondary)
                         }
@@ -198,9 +230,9 @@ struct ContentView: View {
                 } else {
                     ForEach(session.activeSoundLayers, id: \.self) { layer in
                         HStack(spacing: 10) {
-                            Image(systemName: layer.contains("Bird") ? "bird.fill" : "water.waves")
+                            Image(systemName: iconForLayer(layer))
                                 .frame(width: 24)
-                                .foregroundStyle(layer.contains("Bird") ? .teal : .blue)
+                                .foregroundStyle(colorForLayer(layer))
                             Text(layer)
                                 .font(.headline)
                             Spacer()
@@ -355,6 +387,88 @@ struct ContentView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(10)
         .background(Color(.tertiarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 6))
+    }
+
+    private func icon(for label: String) -> String {
+        switch label {
+        case "leaf":
+            return "leaf.fill"
+        case "tree":
+            return "tree.fill"
+        case "bird":
+            return "bird.fill"
+        case "ocean":
+            return "water.waves"
+        case "river":
+            return "fish.fill"
+        case "rain":
+            return "cloud.rain.fill"
+        default:
+            return "scribble.variable"
+        }
+    }
+
+    private func color(for label: String) -> Color {
+        switch label {
+        case "leaf":
+            return Color(red: 0.37, green: 0.63, blue: 0.30)
+        case "tree":
+            return Color(red: 0.20, green: 0.49, blue: 0.32)
+        case "bird":
+            return .teal
+        case "ocean":
+            return Color(red: 0.16, green: 0.47, blue: 0.76)
+        case "river":
+            return .blue
+        case "rain":
+            return Color(red: 0.38, green: 0.49, blue: 0.70)
+        default:
+            return .secondary
+        }
+    }
+
+    private func iconForLayer(_ layer: String) -> String {
+        if layer.contains("leaves") || layer.contains("Leaves") {
+            return "leaf.fill"
+        }
+        if layer.contains("Forest") {
+            return "tree.fill"
+        }
+        if layer.contains("Bird") {
+            return "bird.fill"
+        }
+        if layer.contains("Ocean") {
+            return "water.waves"
+        }
+        if layer.contains("River") {
+            return "fish.fill"
+        }
+        if layer.contains("Rain") {
+            return "cloud.rain.fill"
+        }
+        return "music.note"
+    }
+
+    private func colorForLayer(_ layer: String) -> Color {
+        if layer.contains("leaves") || layer.contains("Leaves") {
+            return color(for: "leaf")
+        }
+        if layer.contains("Forest") {
+            return color(for: "tree")
+        }
+        if layer.contains("Bird") {
+            return color(for: "bird")
+        }
+        if layer.contains("Ocean") {
+            return color(for: "ocean")
+        }
+        if layer.contains("River") {
+            return color(for: "river")
+        }
+        if layer.contains("Rain") {
+            return color(for: "rain")
+        }
+        return .secondary
     }
 }
 

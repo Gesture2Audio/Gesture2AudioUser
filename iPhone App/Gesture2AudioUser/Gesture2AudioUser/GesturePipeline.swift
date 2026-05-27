@@ -79,27 +79,20 @@ struct GesturePrediction: Identifiable, Sendable {
     let timestamp: Date
 
     var soundLayer: String {
-        switch label {
-        case "bird":
-            return "Bird chirps"
-        case "river":
-            return "River sound"
-        default:
-            return label.capitalized
-        }
+        GestureClassifier.soundLayer(for: label)
     }
 }
 
 final class GestureClassifier {
     enum LoadStatus: Sendable {
-        case ready(sampleCount: Int, modelType: String)
+        case ready(sampleCount: Int, modelType: String, selectedFeatureCount: Int)
         case missingResource
         case failedToDecode(String)
 
         var displayText: String {
             switch self {
-            case .ready(let sampleCount, let modelType):
-                return "ready: \(modelType), \(sampleCount) training samples"
+            case .ready(let sampleCount, let modelType, let selectedFeatureCount):
+                return "ready: \(modelType), \(sampleCount) samples, \(selectedFeatureCount) features"
             case .missingResource:
                 return "model unavailable: bundled model file missing"
             case .failedToDecode(let message):
@@ -113,43 +106,51 @@ final class GestureClassifier {
         let scale: [Double]
     }
 
-    private struct LogisticClassifierDefinition: Decodable, Sendable {
-        let positiveLabel: String
-        let coefficients: [Double]
-        let intercept: Double
+    private struct MulticlassClassifierDefinition: Decodable, Sendable {
+        let classes: [Int]
+        let coefficients: [[Double]]
+        let intercepts: [Double]
+        let regularizationC: Double?
 
         enum CodingKeys: String, CodingKey {
-            case positiveLabel = "positive_label"
+            case classes
             case coefficients
-            case intercept
+            case intercepts
+            case regularizationC = "regularization_c"
         }
     }
 
-    private struct GestureLogisticModel: Decodable, Sendable {
+    private struct SixGestureModel: Decodable, Sendable {
         let modelType: String
         let labels: [String]
         let displayNames: [String: String]
+        let soundLayers: [String: String]
         let sampleCount: Int
         let featureCount: Int
+        let selectedFeatureCount: Int
         let targetFrames: Int
-        let downsampleBins: Int
+        let sequenceFrames: Int
+        let selectedFeatureIndices: [Int]
         let scaler: LogisticScaler
-        let classifier: LogisticClassifierDefinition
+        let classifier: MulticlassClassifierDefinition
 
         enum CodingKeys: String, CodingKey {
             case modelType = "model_type"
             case labels
             case displayNames = "display_names"
+            case soundLayers = "sound_layers"
             case sampleCount = "sample_count"
             case featureCount = "feature_count"
+            case selectedFeatureCount = "selected_feature_count"
             case targetFrames = "target_frames"
-            case downsampleBins = "downsample_bins"
+            case sequenceFrames = "sequence_frames"
+            case selectedFeatureIndices = "selected_feature_indices"
             case scaler
             case classifier
         }
     }
 
-    private var model: GestureLogisticModel?
+    private var model: SixGestureModel?
     private(set) var loadStatus: LoadStatus = .missingResource
 
     init() {
@@ -166,34 +167,43 @@ final class GestureClassifier {
 
     func classify(frames: [IMUFrame]) -> GesturePrediction? {
         guard let model else { return nil }
-        let features = featuresForFrames(frames, targetFrames: model.targetFrames, downsampleBins: model.downsampleBins)
+        let features = featuresForFrames(frames, targetFrames: model.targetFrames, sequenceFrames: model.sequenceFrames)
         guard features.count == model.featureCount else { return nil }
+        guard model.selectedFeatureIndices.count == model.selectedFeatureCount else { return nil }
 
-        let standardized = zip(zip(features, model.scaler.mean), model.scaler.scale).map { packed -> Double in
-            let ((value, mean), scale) = packed
+        var selectedFeatures: [Double] = []
+        selectedFeatures.reserveCapacity(model.selectedFeatureIndices.count)
+        for index in model.selectedFeatureIndices {
+            guard index >= 0,
+                  index < features.count,
+                  index < model.scaler.mean.count,
+                  index < model.scaler.scale.count else { return nil }
+            let value = features[index]
+            let mean = model.scaler.mean[index]
+            let scale = model.scaler.scale[index]
             let denominator = abs(scale) < 0.0000001 ? 1.0 : scale
-            return (value - mean) / denominator
+            selectedFeatures.append((value - mean) / denominator)
         }
 
-        guard standardized.count == model.classifier.coefficients.count else { return nil }
+        var scoredLabels: [(label: String, score: Double)] = []
+        for rowIndex in model.classifier.coefficients.indices {
+            guard rowIndex < model.classifier.intercepts.count else { return nil }
+            let classIndex = rowIndex < model.classifier.classes.count ? model.classifier.classes[rowIndex] : rowIndex
+            guard classIndex >= 0, classIndex < model.labels.count else { return nil }
 
-        let logit = zip(standardized, model.classifier.coefficients).reduce(model.classifier.intercept) { partial, item in
-            partial + (item.0 * item.1)
+            let coefficients = model.classifier.coefficients[rowIndex]
+            guard coefficients.count == selectedFeatures.count else { return nil }
+            let score = zip(selectedFeatures, coefficients).reduce(model.classifier.intercepts[rowIndex]) { partial, item in
+                partial + (item.0 * item.1)
+            }
+            scoredLabels.append((label: model.labels[classIndex], score: score))
         }
-        let positiveProbability = sigmoid(logit)
-        let negativeProbability = 1.0 - positiveProbability
 
-        let positiveLabel = model.classifier.positiveLabel
-        let negativeLabel = model.labels.first { $0 != positiveLabel } ?? model.labels.first ?? positiveLabel
-        let winnerLabel: String
-        let confidence: Double
-        if positiveProbability >= negativeProbability {
-            winnerLabel = positiveLabel
-            confidence = positiveProbability
-        } else {
-            winnerLabel = negativeLabel
-            confidence = negativeProbability
+        guard let best = scoredLabels.enumerated().max(by: { $0.element.score < $1.element.score }) else {
+            return nil
         }
+        let confidence = softmaxProbability(for: best.offset, scores: scoredLabels.map { $0.score })
+        let winnerLabel = best.element.label
 
         return GesturePrediction(
             label: winnerLabel,
@@ -205,123 +215,216 @@ final class GestureClassifier {
 
     static func displayName(for label: String) -> String {
         switch label {
+        case "leaf":
+            return "Leaf"
+        case "tree":
+            return "Tree"
         case "bird":
             return "Bird"
+        case "ocean":
+            return "Wave"
         case "river":
             return "Fish"
+        case "rain":
+            return "Cloud"
+        default:
+            return label.capitalized
+        }
+    }
+
+    static func soundLayer(for label: String) -> String {
+        switch label {
+        case "leaf":
+            return "Rustling leaves"
+        case "tree":
+            return "Forest sound"
+        case "bird":
+            return "Bird chirps"
+        case "ocean":
+            return "Ocean waves"
+        case "river":
+            return "River sound"
+        case "rain":
+            return "Rain sound"
         default:
             return label.capitalized
         }
     }
 
     private func loadBundledModel() {
-        guard let url = Bundle.main.url(forResource: "bird_river_model", withExtension: "json") else {
+        guard let url = Bundle.main.url(forResource: "six_gesture_model", withExtension: "json") else {
             loadStatus = .missingResource
             return
         }
 
         do {
             let data = try Data(contentsOf: url)
-            let decodedModel = try JSONDecoder().decode(GestureLogisticModel.self, from: data)
+            let decodedModel = try JSONDecoder().decode(SixGestureModel.self, from: data)
             model = decodedModel
-            loadStatus = .ready(sampleCount: decodedModel.sampleCount, modelType: "trained logistic model")
+            loadStatus = .ready(
+                sampleCount: decodedModel.sampleCount,
+                modelType: "six-gesture logistic model",
+                selectedFeatureCount: decodedModel.selectedFeatureCount
+            )
         } catch {
             model = nil
             loadStatus = .failedToDecode(error.localizedDescription)
         }
     }
 
-    private func fixedLength(_ frames: [IMUFrame], targetFrames: Int) -> [IMUFrame] {
-        guard let last = frames.last else { return [] }
-        var result = Array(frames.prefix(targetFrames))
-        while result.count < targetFrames {
-            result.append(last)
-        }
-        return result
-    }
+    private func featuresForFrames(_ frames: [IMUFrame], targetFrames: Int, sequenceFrames: Int) -> [Double] {
+        let correctedRows = baselineCorrectedRows(frames)
+        guard !correctedRows.isEmpty else { return [] }
 
-    private func featuresForFrames(_ frames: [IMUFrame], targetFrames: Int, downsampleBins: Int) -> [Double] {
-        let fixed = fixedLength(frames, targetFrames: targetFrames)
-        guard !fixed.isEmpty else { return [] }
-
-        let rows: [[Double]] = fixed.map {
-            let accelMagnitude = magnitude($0.ax, $0.ay, $0.az)
-            let gyroMagnitude = magnitude($0.gx, $0.gy, $0.gz)
-            return [$0.ax, $0.ay, $0.az, $0.gx, $0.gy, $0.gz, accelMagnitude, gyroMagnitude]
+        let resampled = resample(rows: correctedRows, targetCount: targetFrames)
+        let signals = resampled.map { row -> [Double] in
+            let accelMagnitude = magnitude(row[0], row[1], row[2])
+            let gyroMagnitude = magnitude(row[3], row[4], row[5])
+            return row + [accelMagnitude, gyroMagnitude]
         }
-
-        var deltaRows: [[Double]] = []
-        for index in rows.indices {
-            if index == rows.startIndex {
-                deltaRows.append(Array(repeating: 0, count: rows[index].count))
-            } else {
-                deltaRows.append(zip(rows[index], rows[index - 1]).map { current, previous in
-                    current - previous
-                })
-            }
-        }
+        let delta = diffRows(signals)
+        let delta2 = diffRows(delta)
 
         var featureVector: [Double] = []
-        featureVector.append(contentsOf: downsample(rows: rows, bins: downsampleBins).flatMap { $0 })
-        appendSummary(for: rows, to: &featureVector)
-        appendSummary(for: deltaRows, to: &featureVector)
+        featureVector.reserveCapacity(652)
+        appendBlockSummary(signals, signalWidth: 8, to: &featureVector)
+        appendBlockSummary(delta, signalWidth: 8, to: &featureVector)
+        appendBlockSummary(delta2, signalWidth: 8, to: &featureVector)
+        appendCorrelations(signals, signalWidth: 8, to: &featureVector)
+        featureVector.append(contentsOf: resample(rows: correctedRows, targetCount: sequenceFrames).flatMap { $0 })
         return featureVector
     }
 
-    private func appendSummary(for rows: [[Double]], to output: inout [Double]) {
-        guard let first = rows.first else { return }
-        let width = first.count
+    private func baselineCorrectedRows(_ frames: [IMUFrame]) -> [[Double]] {
+        let rows = frames.map { [$0.ax, $0.ay, $0.az, $0.gx, $0.gy, $0.gz] }
+        guard let first = rows.first else { return [] }
 
-        for column in 0..<width {
-            let values = rows.map { $0[column] }
-            let mean = values.reduce(0, +) / Double(values.count)
-            let variance = values.reduce(0) { $0 + pow($1 - mean, 2) } / Double(values.count)
-            let rms = sqrt(values.reduce(0) { $0 + ($1 * $1) } / Double(values.count))
-            let absValues = values.map { abs($0) }
-            let sorted = values.sorted()
+        let baselineCount = min(5, rows.count)
+        var baseline = Array(repeating: 0.0, count: first.count)
+        for row in rows.prefix(baselineCount) {
+            for index in 0..<baseline.count {
+                baseline[index] += row[index]
+            }
+        }
+        baseline = baseline.map { $0 / Double(baselineCount) }
 
-            output.append(mean)
-            output.append(sqrt(variance))
-            output.append(values.min() ?? 0)
-            output.append(values.max() ?? 0)
-            output.append(rms)
-            output.append(absValues.reduce(0, +) / Double(absValues.count))
-            output.append(percentile(sortedValues: sorted, fraction: 0.25))
-            output.append(percentile(sortedValues: sorted, fraction: 0.50))
-            output.append(percentile(sortedValues: sorted, fraction: 0.75))
-            output.append(absValues.max() ?? 0)
+        return rows.map { row in
+            zip(row, baseline).map { value, mean in value - mean }
         }
     }
 
-    private func downsample(rows: [[Double]], bins: Int) -> [[Double]] {
-        guard bins > 0, !rows.isEmpty else { return [] }
-        let width = rows[0].count
-        let count = rows.count
-        return (0..<bins).map { bin in
-            let start = bin * count / bins
-            let end = max(start + 1, (bin + 1) * count / bins)
-            let segment = rows[start..<min(end, count)]
-            var averages = Array(repeating: 0.0, count: width)
-            for row in segment {
-                for index in 0..<width {
-                    averages[index] += row[index]
-                }
-            }
-            let divisor = Double(segment.count)
-            return averages.map { $0 / divisor }
+    private func resample(rows: [[Double]], targetCount: Int) -> [[Double]] {
+        guard targetCount > 0, let first = rows.first else { return [] }
+        guard rows.count != targetCount else { return rows }
+        guard rows.count > 1, targetCount > 1 else {
+            return Array(repeating: first, count: targetCount)
         }
+
+        let sourceLastIndex = Double(rows.count - 1)
+        let targetLastIndex = Double(targetCount - 1)
+        return (0..<targetCount).map { targetIndex in
+            let position = Double(targetIndex) * sourceLastIndex / targetLastIndex
+            let lowerIndex = Int(floor(position))
+            let upperIndex = min(lowerIndex + 1, rows.count - 1)
+            let weight = position - Double(lowerIndex)
+            return zip(rows[lowerIndex], rows[upperIndex]).map { lower, upper in
+                lower + ((upper - lower) * weight)
+            }
+        }
+    }
+
+    private func diffRows(_ rows: [[Double]]) -> [[Double]] {
+        guard rows.count > 1 else { return [] }
+        return (1..<rows.count).map { index in
+            zip(rows[index], rows[index - 1]).map { current, previous in
+                current - previous
+            }
+        }
+    }
+
+    private func appendBlockSummary(_ block: [[Double]], signalWidth: Int, to output: inout [Double]) {
+        guard !block.isEmpty else {
+            output.append(contentsOf: Array(repeating: 0.0, count: signalWidth * 10))
+            return
+        }
+
+        let columns = (0..<signalWidth).map { column in block.map { $0[column] } }
+
+        output.append(contentsOf: columns.map { mean($0) })
+        output.append(contentsOf: columns.map { standardDeviation($0) })
+        output.append(contentsOf: columns.map { $0.min() ?? 0 })
+        output.append(contentsOf: columns.map { $0.max() ?? 0 })
+
+        for fraction in [0.10, 0.25, 0.50, 0.75, 0.90] {
+            output.append(contentsOf: columns.map { percentile(values: $0, fraction: fraction) })
+        }
+
+        output.append(contentsOf: columns.map { values in
+            values.reduce(0) { $0 + ($1 * $1) } / Double(values.count)
+        })
+    }
+
+    private func appendCorrelations(_ rows: [[Double]], signalWidth: Int, to output: inout [Double]) {
+        guard !rows.isEmpty else {
+            output.append(contentsOf: Array(repeating: 0.0, count: signalWidth * (signalWidth - 1) / 2))
+            return
+        }
+
+        let columns = (0..<signalWidth).map { column in blockColumn(rows, column: column) }
+        for left in 0..<signalWidth {
+            for right in (left + 1)..<signalWidth {
+                output.append(correlation(columns[left], columns[right]))
+            }
+        }
+    }
+
+    private func blockColumn(_ rows: [[Double]], column: Int) -> [Double] {
+        rows.map { $0[column] }
+    }
+
+    private func mean(_ values: [Double]) -> Double {
+        guard !values.isEmpty else { return 0 }
+        return values.reduce(0, +) / Double(values.count)
+    }
+
+    private func standardDeviation(_ values: [Double]) -> Double {
+        guard !values.isEmpty else { return 0 }
+        let average = mean(values)
+        let variance = values.reduce(0) { $0 + pow($1 - average, 2) } / Double(values.count)
+        return sqrt(variance)
+    }
+
+    private func correlation(_ xValues: [Double], _ yValues: [Double]) -> Double {
+        guard xValues.count == yValues.count, !xValues.isEmpty else { return 0 }
+        let xMean = mean(xValues)
+        let yMean = mean(yValues)
+        var numerator = 0.0
+        var xEnergy = 0.0
+        var yEnergy = 0.0
+
+        for index in xValues.indices {
+            let xCentered = xValues[index] - xMean
+            let yCentered = yValues[index] - yMean
+            numerator += xCentered * yCentered
+            xEnergy += xCentered * xCentered
+            yEnergy += yCentered * yCentered
+        }
+
+        let denominator = sqrt(xEnergy * yEnergy)
+        return denominator < 0.0000001 ? 0 : numerator / denominator
     }
 
     private func magnitude(_ x: Double, _ y: Double, _ z: Double) -> Double {
         sqrt(x * x + y * y + z * z)
     }
 
-    private func percentile(sortedValues: [Double], fraction: Double) -> Double {
-        guard !sortedValues.isEmpty else { return 0 }
+    private func percentile(values: [Double], fraction: Double) -> Double {
+        guard !values.isEmpty else { return 0 }
+        let sortedValues = values.sorted()
         let clampedFraction = min(max(fraction, 0), 1)
         let position = clampedFraction * Double(sortedValues.count - 1)
-        let lowerIndex = Int(position.rounded(.down))
-        let upperIndex = Int(position.rounded(.up))
+        let lowerIndex = Int(floor(position))
+        let upperIndex = Int(ceil(position))
         if lowerIndex == upperIndex {
             return sortedValues[lowerIndex]
         }
@@ -331,12 +434,11 @@ final class GestureClassifier {
         return lowerValue + ((upperValue - lowerValue) * weight)
     }
 
-    private func sigmoid(_ value: Double) -> Double {
-        if value >= 0 {
-            let exponent = exp(-value)
-            return 1 / (1 + exponent)
-        }
-        let exponent = exp(value)
-        return exponent / (1 + exponent)
+    private func softmaxProbability(for selectedIndex: Int, scores: [Double]) -> Double {
+        guard selectedIndex >= 0, selectedIndex < scores.count else { return 0 }
+        let maxScore = scores.max() ?? 0
+        let exponentials = scores.map { exp($0 - maxScore) }
+        let denominator = exponentials.reduce(0, +)
+        return denominator < 0.0000001 ? 0 : exponentials[selectedIndex] / denominator
     }
 }

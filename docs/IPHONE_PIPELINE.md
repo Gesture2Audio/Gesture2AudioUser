@@ -1,6 +1,6 @@
 # iPhone Pipeline
 
-This is the active live bird/fish demo app.
+This is the active live six-gesture demo app.
 
 Project:
 
@@ -13,105 +13,113 @@ iPhone App/Gesture2AudioUser/Gesture2AudioUser.xcodeproj
 1. Run the iPhone app on the phone.
 2. Run the Watch app on the paired Apple Watch.
 3. Shake the watch to trigger a 3-second capture.
-4. Draw either the bird gesture or the fish gesture.
+4. Draw one of the six supported gestures.
 5. The watch transfers the captured IMU sequence to the phone.
-6. The iPhone classifies the sequence as `bird` or `river`.
-7. The iPhone sends the detected source to the embedded HTML sound engine.
-8. The HTML engine starts the matching layer:
-   - `bird` -> bird chirps
-   - `river` -> river sound
-9. A second gesture adds the next layer without stopping the first one.
-10. The user can switch the sound-characteristics mode manually with native `happy`, `neutral`, and `sad` buttons, which update the embedded HTML DSP chain.
+6. The iPhone extracts the same 652 IMU features used in the notebook.
+7. The iPhone scales those features, keeps the selected 200 features, and runs the six-class logistic-regression model.
+8. The detected gesture is sent to the embedded HTML sound engine.
+9. The HTML engine adds the matching layer without stopping the existing layers.
+10. The user can switch `happy`, `neutral`, and `sad` manually; the selected mood immediately changes the active audio processing chain.
+
+## Gestures And Layers
+
+```text
+leaf   -> rustling leaves
+tree   -> forest sound
+bird   -> bird chirps
+ocean  -> ocean waves
+river  -> river sound
+rain   -> rain sound
+```
+
+The user-facing gesture names are shown as Leaf, Tree, Bird, Wave, Fish, and Cloud. Internally, the trained labels remain `leaf`, `tree`, `bird`, `ocean`, `river`, and `rain`.
 
 ## What Is Implemented
 
 - Apple Watch IMU capture at 50 Hz.
 - Shake-triggered 3-second gesture window.
-- Phone-side classification after each transferred capture.
+- Phone-side six-gesture classification after each transferred capture.
 - Embedded HTML/JavaScript sound engine inside the iPhone app through `WKWebView`.
-- Additive bird and river audio layers driven by the embedded page.
+- Additive audio layers for all six detected gestures.
 - Default transient processing on the phone:
   - classify immediately
   - do not persist raw captures
 - Optional research save mode on the phone for debugging and later analysis.
 - Native mood buttons that drive the HTML sound-characteristics logic.
-- Bundled sound files from the soundscape prototype repo:
+- Bundled WAV files for the two collected prototype sounds:
   - `audio/birds.wav`
   - `audio/river.wav`
+- Generated HTML-engine layers for leaves, forest, ocean, and rain until final audio assets are added.
 
 ## Model
 
 Bundled model file:
 
 ```text
-iPhone App/Gesture2AudioUser/Gesture2AudioUser/bird_river_model.json
+iPhone App/Gesture2AudioUser/Gesture2AudioUser/six_gesture_model.json
+```
+
+Export script:
+
+```text
+scripts/export_six_gesture_ios_model.py
 ```
 
 Training script:
 
 ```text
-scripts/train_bird_river_model.py
-```
-
-Embedded soundscape engine:
-
-```text
-iPhone App/Gesture2AudioUser/Gesture2AudioUser/soundscape_embed.html
-```
-
-Bundled sound assets:
-
-```text
-iPhone App/Gesture2AudioUser/Gesture2AudioUser/audio/birds.wav
-iPhone App/Gesture2AudioUser/Gesture2AudioUser/audio/river.wav
+scripts/train_six_gesture_model.py
 ```
 
 Training data source:
 
 ```text
-data/training_samples_full.json
+data/cleaned_training_v2/cleaned_training_samples_full.json
 ```
 
 Model details:
 
-- model type: logistic regression
-- classes: `bird`, `river`
-- training samples: 91
-- feature count: 416
+- model type: `kbest200_logistic_regression`
+- classifier: multi-class logistic regression
+- classes: `leaf`, `tree`, `bird`, `ocean`, `river`, `rain`
+- training samples: `940`
+- extracted features per gesture: `652`
+- selected features used by classifier: `200`
 - input channels:
   - `ax`, `ay`, `az`
   - `gx`, `gy`, `gz`
+- derived channels:
   - acceleration magnitude
   - gyroscope magnitude
 - feature extraction:
-  - fixed 151-frame window
-  - 32-bin temporal downsampling
-  - raw-signal summary statistics
-  - delta-signal summary statistics
-
-The user-facing fish gesture is stored as `river` in the dataset because it triggers the river sound layer.
+  - first-five-frame baseline correction
+  - 128-frame interpolation
+  - signal, delta, and delta2 statistics
+  - channel correlations
+  - 64-frame resampled raw IMU shape
 
 ## Validation
 
-The trained model artifact was generated from the approved bird and river samples and evaluated during training.
-
-Result:
+Latest selected model:
 
 ```text
-5-fold CV accuracy: 0.923
-Held-out accuracy: 1.000
-Held-out confusion matrix:
-['bird', 'river']
-[[11, 0], [0, 12]]
-Leave-one-participant-out:
-Nilakna -> 0.525
-Nilesh  -> 0.490
+kbest200_logistic_regression
 ```
 
-The random-split demo accuracy is strong enough for the current bird/fish pipeline test. The participant-split result is still weak, which means the model is learning person-specific drawing style. For a general-user model, more participants are required.
+Current metrics:
+
+```text
+Random holdout accuracy: 0.851
+Random holdout macro F1: 0.852
+
+LOPO accuracy: 0.520
+LOPO macro F1: 0.522
+```
+
+The random-holdout result is the expected known-user/calibrated-user demo behavior. The LOPO result is the honest unseen-participant result and remains the main research limitation.
 
 ## Current Limitation
 
-This app is live after each 3-second gesture capture reaches the phone. It is not continuous rolling-window classification yet.
+This app classifies after each 3-second transferred capture reaches the phone. It is not continuous rolling-window classification yet.
 
-The next step is to move from transfer-per-capture inference to continuous live inference on the incoming IMU stream, then replace manual `happy/neutral/sad` control with automatic physiological-state mapping from heart rate, HRV, and mindfulness signals.
+The six-class model is now integrated for the app demo, but unseen-user generalization is still weak. For a strong final research claim, the next step is cleaner multi-participant data collection with stricter gesture timing and more repeated samples per gesture.
