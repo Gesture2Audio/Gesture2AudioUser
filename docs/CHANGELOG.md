@@ -182,3 +182,11 @@ Format:
 - Files: `iPhone App/Gesture2AudioUser/Gesture2AudioUser/soundscape_embed.html`, `iPhone App/Gesture2AudioUser/Gesture2AudioUser/SoundscapeWebController.swift`, `README.md`, `docs/IPHONE_PIPELINE.md`, `docs/CHANGELOG.md`.
 - Validation: Confirmed the Swift bridge now sends `leaf`, `tree`, `birds`, `ocean`, `river`, and `rain` into the HTML engine and ran `node --check` on the embedded script.
 - Notes: Mood variation remains HTML-owned through the existing fade, playback-rate, and filter chain logic.
+
+## 2026-05-28 - Use Latest Local G2A Soundscape Engine
+
+- Changed: Replaced the app's custom six-source audio page with the latest `Gesture2Audio/G2A_Soundscape` local six-sample generator. The app now bundles `audio/local/leaf.mp3`, `tree.mp3`, `bird.mp3`, `wave.mp3`, `fish.mp3`, and `cloud.mp3` plus the generator metadata.
+- Reason: The dedicated soundscape repo now has a working local-sample engine, so the app should use that directly instead of keeping a separate procedural version.
+- Files: `iPhone App/Gesture2AudioUser/Gesture2AudioUser/soundscape_embed.html`, `iPhone App/Gesture2AudioUser/Gesture2AudioUser/SoundscapeWebController.swift`, `iPhone App/Gesture2AudioUser/Gesture2AudioUser/audio/local/*.mp3`, `iPhone App/Gesture2AudioUser/Gesture2AudioUser/data/sample-library.json`, `iPhone App/Gesture2AudioUser/Gesture2AudioUser/data/sources.json`, `README.md`, `docs/IPHONE_PIPELINE.md`, `docs/CHANGELOG.md`.
+- Validation: Pulled `G2A_Soundscape` commit `e4d7622`, copied its local generator assets, confirmed the app bundle has six local MP3 files, and kept the native bridge mapping model labels to generator IDs.
+- Notes: The only app-specific HTML addition is the `window.g2a` bridge used by Swift. The sound generation, sample loading, mood DSP, randomized voices, and source mixing remain owned by the imported HTML engine.

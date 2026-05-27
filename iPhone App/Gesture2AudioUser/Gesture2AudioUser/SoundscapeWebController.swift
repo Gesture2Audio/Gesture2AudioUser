@@ -53,7 +53,6 @@ final class SoundscapeWebController: NSObject, ObservableObject {
 
     private weak var webView: WKWebView?
     private var pendingScripts: [String] = []
-    private var assetURLScript = ""
 
     func attach(webView: WKWebView) {
         self.webView = webView
@@ -61,9 +60,6 @@ final class SoundscapeWebController: NSObject, ObservableObject {
 
     func pageDidBecomeReady() {
         isReady = true
-        if !assetURLScript.isEmpty {
-            run(script: assetURLScript)
-        }
         flushPendingScripts()
         primeAudio()
         setMood(currentMood)
@@ -76,13 +72,13 @@ final class SoundscapeWebController: NSObject, ObservableObject {
                 return "Rustling leaves"
             case "tree":
                 return "Forest sound"
-            case "birds":
+            case "bird":
                 return "Bird chirps"
-            case "ocean":
+            case "wave":
                 return "Ocean waves"
-            case "river":
+            case "fish":
                 return "River sound"
-            case "rain":
+            case "cloud":
                 return "Rain sound"
             default:
                 return $0.capitalized
@@ -91,7 +87,7 @@ final class SoundscapeWebController: NSObject, ObservableObject {
         if let statusText, !statusText.isEmpty {
             self.statusText = statusText
         }
-        if let mood, let resolvedMood = SoundscapeMood(rawValue: mood) {
+        if let mood, let resolvedMood = moodFromEngine(mood) {
             currentMood = resolvedMood
         }
         if activeSources.isEmpty && lastError.isEmpty {
@@ -129,13 +125,13 @@ final class SoundscapeWebController: NSObject, ObservableObject {
         case "tree":
             run(script: "window.g2a && window.g2a.ensureSound('tree');")
         case "bird":
-            run(script: "window.g2a && window.g2a.ensureSound('birds');")
+            run(script: "window.g2a && window.g2a.ensureSound('bird');")
         case "ocean":
-            run(script: "window.g2a && window.g2a.ensureSound('ocean');")
+            run(script: "window.g2a && window.g2a.ensureSound('wave');")
         case "river":
-            run(script: "window.g2a && window.g2a.ensureSound('river');")
+            run(script: "window.g2a && window.g2a.ensureSound('fish');")
         case "rain":
-            run(script: "window.g2a && window.g2a.ensureSound('rain');")
+            run(script: "window.g2a && window.g2a.ensureSound('cloud');")
         default:
             break
         }
@@ -144,15 +140,6 @@ final class SoundscapeWebController: NSObject, ObservableObject {
     func reset() {
         clearError()
         run(script: "window.g2a && window.g2a.reset();")
-    }
-
-    func configureAssetURLs(birds: URL, river: URL) {
-        let birdsPath = escapedJavaScriptString(birds.absoluteString)
-        let riverPath = escapedJavaScriptString(river.absoluteString)
-        assetURLScript = "window.g2aAssetURLs = { birds: '\(birdsPath)', river: '\(riverPath)' };"
-        if isReady {
-            run(script: assetURLScript)
-        }
     }
 
     private func run(script: String) {
@@ -180,10 +167,17 @@ final class SoundscapeWebController: NSObject, ObservableObject {
         run(script: "window.g2a && window.g2a.primeAudio && window.g2a.primeAudio();")
     }
 
-    private func escapedJavaScriptString(_ value: String) -> String {
-        value
-            .replacingOccurrences(of: "\\", with: "\\\\")
-            .replacingOccurrences(of: "'", with: "\\'")
+    private func moodFromEngine(_ value: String) -> SoundscapeMood? {
+        switch value {
+        case "happy", "bright":
+            return .happy
+        case "neutral", "restored", "calm":
+            return .neutral
+        case "sad", "dusk":
+            return .sad
+        default:
+            return nil
+        }
     }
 }
 
@@ -223,6 +217,10 @@ final class BundleAudioSchemeHandler: NSObject, WKURLSchemeHandler {
             switch resourceExtension.lowercased() {
             case "wav":
                 mimeType = "audio/wav"
+            case "mp3":
+                mimeType = "audio/mpeg"
+            case "ogg":
+                mimeType = "audio/ogg"
             case "html":
                 mimeType = "text/html; charset=utf-8"
             case "js":
@@ -273,14 +271,10 @@ struct SoundscapeWebView: UIViewRepresentable {
         webView.isOpaque = false
         webView.backgroundColor = .clear
         webView.scrollView.backgroundColor = .clear
-        webView.scrollView.isScrollEnabled = false
+        webView.scrollView.isScrollEnabled = true
         webView.navigationDelegate = context.coordinator
         controller.attach(webView: webView)
 
-        controller.configureAssetURLs(
-            birds: URL(string: "g2audio://app/audio/birds.wav")!,
-            river: URL(string: "g2audio://app/audio/river.wav")!
-        )
         webView.load(URLRequest(url: URL(string: "g2audio://app/soundscape_embed.html")!))
 
         return webView

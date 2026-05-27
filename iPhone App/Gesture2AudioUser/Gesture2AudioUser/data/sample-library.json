@@ -1,0 +1,103 @@
+{
+    "generatedAt":  "2026-05-28T07:33:20",
+    "provider":  "Local six-sample prototype set",
+    "targetPerCategory":  1,
+    "categories":  {
+                       "leaf":  {
+                                    "query":  "local rustling leaves",
+                                    "count":  1,
+                                    "samples":  [
+                                                    {
+                                                        "id":  "local-leaf",
+                                                        "title":  "Local rustling leaves",
+                                                        "url":  "audio/local/leaf.mp3",
+                                                        "creator":  "Local project sample",
+                                                        "license":  "local-prototype",
+                                                        "provider":  "local",
+                                                        "duration":  null,
+                                                        "attribution":  "Local prototype sample derived from an already-downloaded Freesound preview."
+                                                    }
+                                                ]
+                                },
+                       "wave":  {
+                                    "query":  "local ocean wave",
+                                    "count":  1,
+                                    "samples":  [
+                                                    {
+                                                        "id":  "local-wave",
+                                                        "title":  "Local ocean-style water bed",
+                                                        "url":  "audio/local/wave.mp3",
+                                                        "creator":  "Local project sample",
+                                                        "license":  "local-prototype",
+                                                        "provider":  "local",
+                                                        "duration":  null,
+                                                        "attribution":  "Local prototype sample derived from the project river recording with filtering and echo."
+                                                    }
+                                                ]
+                                },
+                       "tree":  {
+                                    "query":  "local forest wind",
+                                    "count":  1,
+                                    "samples":  [
+                                                    {
+                                                        "id":  "local-tree",
+                                                        "title":  "Local forest wind in trees",
+                                                        "url":  "audio/local/tree.mp3",
+                                                        "creator":  "Local project sample",
+                                                        "license":  "local-prototype",
+                                                        "provider":  "local",
+                                                        "duration":  null,
+                                                        "attribution":  "Local prototype sample derived from an already-downloaded wind-through-trees preview."
+                                                    }
+                                                ]
+                                },
+                       "fish":  {
+                                    "query":  "local river flow",
+                                    "count":  1,
+                                    "samples":  [
+                                                    {
+                                                        "id":  "local-fish",
+                                                        "title":  "Local river flowing sound",
+                                                        "url":  "audio/local/fish.mp3",
+                                                        "creator":  "Local project sample",
+                                                        "license":  "local-prototype",
+                                                        "provider":  "local",
+                                                        "duration":  null,
+                                                        "attribution":  "Local prototype sample derived from audio/river.wav."
+                                                    }
+                                                ]
+                                },
+                       "cloud":  {
+                                     "query":  "local rain bed",
+                                     "count":  1,
+                                     "samples":  [
+                                                     {
+                                                         "id":  "local-cloud",
+                                                         "title":  "Local rain bed",
+                                                         "url":  "audio/local/cloud.mp3",
+                                                         "creator":  "Local project sample",
+                                                         "license":  "local-prototype",
+                                                         "provider":  "local",
+                                                         "duration":  null,
+                                                         "attribution":  "Local prototype rain bed generated with FFmpeg noise filtering."
+                                                     }
+                                                 ]
+                                 },
+                       "bird":  {
+                                    "query":  "local bird chirps",
+                                    "count":  1,
+                                    "samples":  [
+                                                    {
+                                                        "id":  "local-bird",
+                                                        "title":  "Local bird chirps",
+                                                        "url":  "audio/local/bird.mp3",
+                                                        "creator":  "Local project sample",
+                                                        "license":  "local-prototype",
+                                                        "provider":  "local",
+                                                        "duration":  null,
+                                                        "attribution":  "Local prototype sample derived from audio/birds.wav."
+                                                    }
+                                                ]
+                                }
+                   }
+}

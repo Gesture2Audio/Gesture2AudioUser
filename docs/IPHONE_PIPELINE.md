@@ -17,7 +17,7 @@ iPhone App/Gesture2AudioUser/Gesture2AudioUser.xcodeproj
 5. The watch transfers the captured IMU sequence to the phone.
 6. The iPhone extracts the same 652 IMU features used in the notebook.
 7. The iPhone scales those features, keeps the selected 200 features, and runs the six-class logistic-regression model.
-8. The detected gesture is sent to the embedded HTML sound engine.
+8. The detected gesture is sent to the embedded `G2A_Soundscape` HTML sound engine.
 9. The HTML engine adds the matching audio layer without stopping the existing layers.
 10. The user can switch `happy`, `neutral`, and `sad` manually; the selected mood immediately changes the active audio processing chain.
 
@@ -39,22 +39,23 @@ The user-facing gesture names are shown as Leaf, Tree, Bird, Wave, Fish, and Clo
 - Apple Watch IMU capture at 50 Hz.
 - Shake-triggered 3-second gesture window.
 - Phone-side six-gesture classification after each transferred capture.
-- Embedded HTML/JavaScript audio engine inside the iPhone app through `WKWebView`.
+- Latest local-sample `G2A_Soundscape` HTML/JavaScript audio engine inside the iPhone app through `WKWebView`.
 - Additive audio layers for all six detected gestures.
 - Default transient processing on the phone:
   - classify immediately
   - do not persist raw captures
 - Optional research save mode on the phone for debugging and later analysis.
 - Native mood buttons that drive the HTML sound-characteristics logic.
-- Bundled local audio files:
-  - `audio/birds.wav`
-  - `audio/river.wav`
-- Local HTML-generated sources:
-  - `leaf`
-  - `tree`
-  - `ocean`
-  - `rain`
-- The web-derived sample-pool generator and `Load Sounds` flow are intentionally not used in the app bundle right now.
+- Bundled local `G2A_Soundscape` audio files:
+  - `audio/local/leaf.mp3`
+  - `audio/local/tree.mp3`
+  - `audio/local/bird.mp3`
+  - `audio/local/wave.mp3`
+  - `audio/local/fish.mp3`
+  - `audio/local/cloud.mp3`
+- Soundscape metadata:
+  - `data/sample-library.json`
+  - `data/sources.json`
 
 ## Model
 
@@ -127,4 +128,4 @@ The random-holdout result is the expected known-user/calibrated-user demo behavi
 
 This app classifies after each 3-second transferred capture reaches the phone. It is not continuous rolling-window classification yet.
 
-The six-class model is now integrated for the app demo, but unseen-user generalization is still weak. The current audio path is local-only: bird and river use bundled WAV files, while leaf, tree, ocean, and rain are generated inside the embedded HTML engine.
+The six-class model is now integrated for the app demo, but unseen-user generalization is still weak. The current audio path uses the latest local six-sample `G2A_Soundscape` engine directly, with a thin native bridge for watch-triggered gestures and mood buttons.
