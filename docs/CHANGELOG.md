@@ -158,3 +158,27 @@ Format:
 - Files: `iPhone App/Gesture2AudioUser/Gesture2AudioUser/soundscape_embed.html`, `iPhone App/Gesture2AudioUser/Gesture2AudioUser/data/sample-library.json`, `iPhone App/Gesture2AudioUser/Gesture2AudioUser/data/sources.json`, `iPhone App/Gesture2AudioUser/Gesture2AudioUser/audio/pools/leaf/*.mp3`, `iPhone App/Gesture2AudioUser/Gesture2AudioUser/SoundscapeWebController.swift`, `iPhone App/Gesture2AudioUser/Gesture2AudioUser/ContentView.swift`, `README.md`, `docs/IPHONE_PIPELINE.md`, `docs/CHANGELOG.md`.
 - Validation: Confirmed the copied soundscape metadata contains six categories with 50 samples each and added native bridge functions for `primeAudio`, `setMood`, `ensureSound`, `toggleSound`, and `reset`.
 - Notes: Native labels still remain `leaf`, `tree`, `bird`, `ocean`, `river`, and `rain`; the bridge maps them to the generator IDs `leaf`, `tree`, `bird`, `wave`, `fish`, and `cloud`.
+
+## 2026-05-28 - Restore Local Bird/River Audio Path
+
+- Changed: Removed the app's web sample-pool playback path and restored the embedded two-source HTML engine backed by bundled `birds.wav` and `river.wav`.
+- Reason: The web sample library was not complete enough for a stable app demo, and the current demo should use the existing local audio files instead of the `Load Sounds` flow.
+- Files: `iPhone App/Gesture2AudioUser/Gesture2AudioUser/soundscape_embed.html`, `iPhone App/Gesture2AudioUser/Gesture2AudioUser/SoundscapeWebController.swift`, `iPhone App/Gesture2AudioUser/Gesture2AudioUser/audio/birds.wav`, `iPhone App/Gesture2AudioUser/Gesture2AudioUser/audio/river.wav`, `README.md`, `docs/IPHONE_PIPELINE.md`, `docs/CHANGELOG.md`.
+- Validation: Confirmed both WAV files exist in the app bundle folder, removed `audio/pools` and `data` from the active app resource path, checked that the HTML no longer references `Load Sounds`, `sample-library`, or `audio/pools`, and ran `node --check` on the embedded script.
+- Notes: The six-class classifier remains integrated, but the stable audio demo currently plays only the bird and river layers. Other detected labels do not start a local audio layer until final source files are chosen.
+
+## 2026-05-28 - Refresh Watch App User UI
+
+- Changed: Replaced the Watch app's data-collection-style screen with a user-facing capture screen showing phone connection, shake readiness, a circular 3-second draw timer, sent count, and capture status.
+- Reason: The user Watch app should feel like the live participant/demo app, while still keeping the shake detector and timer behavior intact.
+- Files: `iPhone App/Gesture2AudioUser/Gesture2AudioUser Watch App/ContentView.swift`, `docs/CHANGELOG.md`.
+- Validation: Reviewed the Watch view source and confirmed the IMU manager, shake trigger, 3-second capture window, and phone transfer logic remain in place.
+- Notes: The phone can still send internal label/day values to the Watch manager for compatibility, but those data-collection controls are no longer exposed in the Watch UI.
+
+## 2026-05-28 - Add Local Six-Gesture HTML Audio Layers
+
+- Changed: Extended the embedded HTML sound engine so all six model labels can start a layer. Bird and river still use the bundled WAV files, while leaf, tree, ocean, and rain are generated locally with WebAudio buffers inside the HTML engine.
+- Reason: The app needs all six gestures to produce audio without returning to the web sample-pool JSON or the `Load Sounds` button.
+- Files: `iPhone App/Gesture2AudioUser/Gesture2AudioUser/soundscape_embed.html`, `iPhone App/Gesture2AudioUser/Gesture2AudioUser/SoundscapeWebController.swift`, `README.md`, `docs/IPHONE_PIPELINE.md`, `docs/CHANGELOG.md`.
+- Validation: Confirmed the Swift bridge now sends `leaf`, `tree`, `birds`, `ocean`, `river`, and `rain` into the HTML engine and ran `node --check` on the embedded script.
+- Notes: Mood variation remains HTML-owned through the existing fade, playback-rate, and filter chain logic.

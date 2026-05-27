@@ -1,1169 +1,500 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Soundscape Generator</title>
-  <style>
-    * { box-sizing: border-box; }
-    :root {
-      --bg: #10140f;
-      --panel: #171d16;
-      --panel-2: #1d251c;
-      --line: #354331;
-      --text: #eff3e8;
-      --muted: #a4b49c;
-      --accent: #78c679;
-      --accent-2: #75aadb;
-      --warm: #d5a253;
-      --danger: #d77f6d;
-    }
-    html, body { min-height: 100%; }
-    body {
-      margin: 0;
-      color: var(--text);
-      background:
-        linear-gradient(180deg, rgba(16,20,15,.72), rgba(16,20,15,.96)),
-        url("data:image/svg+xml,%3Csvg width='220' height='220' viewBox='0 0 220 220' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence baseFrequency='.7' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='220' height='220' filter='url(%23n)' opacity='.18'/%3E%3C/svg%3E"),
-        #10140f;
-      font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-    }
-    main {
-      width: min(1120px, calc(100% - 32px));
-      margin: 0 auto;
-      padding: 28px 0 34px;
-    }
-    header {
-      display: grid;
-      grid-template-columns: 1fr auto;
-      align-items: end;
-      gap: 18px;
-      padding: 0 0 18px;
-      border-bottom: 1px solid rgba(255,255,255,.08);
-    }
-    h1 {
-      margin: 0;
-      font-size: clamp(2rem, 6vw, 5.2rem);
-      line-height: .88;
-      letter-spacing: 0;
-      font-weight: 750;
-    }
-    .subtitle {
-      margin: 12px 0 0;
-      color: var(--muted);
-      font-size: .9rem;
-    }
-    .transport {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-    }
-    button {
-      color: inherit;
-      font: inherit;
-    }
-    .icon-button {
-      width: 48px;
-      height: 48px;
-      display: grid;
-      place-items: center;
-      border: 1px solid var(--line);
-      border-radius: 8px;
-      background: var(--panel);
-      cursor: pointer;
-      transition: border-color .2s ease, transform .2s ease, background .2s ease;
-    }
-    .icon-button:hover { border-color: var(--accent); }
-    .icon-button:active { transform: translateY(1px); }
-    .icon-button.active {
-      background: rgba(120,198,121,.16);
-      border-color: var(--accent);
-    }
-    .load-button {
-      width: auto;
-      min-width: 132px;
-      height: 48px;
-      padding: 0 14px;
-      grid-auto-flow: column;
-      gap: 8px;
-      font-size: .78rem;
-      letter-spacing: .08em;
-      text-transform: uppercase;
-    }
-    .load-button[disabled] {
-      cursor: default;
-      opacity: .72;
-    }
-    .glyph {
-      width: 24px;
-      height: 24px;
-      display: block;
-      fill: none;
-      stroke: currentColor;
-      stroke-width: 1.8;
-      stroke-linecap: round;
-      stroke-linejoin: round;
-    }
-    .layout {
-      display: grid;
-      grid-template-columns: minmax(0, 1.15fr) minmax(300px, .85fr);
-      gap: 18px;
-      margin-top: 18px;
-    }
-    section {
-      min-width: 0;
-      background: rgba(23,29,22,.9);
-      border: 1px solid rgba(255,255,255,.08);
-      border-radius: 8px;
-      padding: 18px;
-    }
-    .section-head {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 12px;
-      margin-bottom: 14px;
-    }
-    h2 {
-      margin: 0;
-      font-size: .8rem;
-      text-transform: uppercase;
-      letter-spacing: .12em;
-      color: var(--muted);
-      font-weight: 700;
-    }
-    .source-grid {
-      display: grid;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
-      gap: 12px;
-    }
-    .source {
-      min-height: 156px;
-      border: 1px solid var(--line);
-      border-radius: 8px;
-      background: linear-gradient(180deg, rgba(255,255,255,.035), rgba(255,255,255,.015));
-      padding: 14px;
-      display: grid;
-      grid-template-rows: auto 1fr auto;
-      gap: 8px;
-      text-align: left;
-      cursor: pointer;
-      transition: border-color .2s ease, background .2s ease, transform .2s ease;
-    }
-    .source:hover { border-color: rgba(120,198,121,.7); }
-    .source.active {
-      border-color: var(--accent);
-      background: rgba(120,198,121,.13);
-    }
-    .source:active { transform: translateY(1px); }
-    .source-top {
-      display: flex;
-      justify-content: space-between;
-      align-items: start;
-      gap: 10px;
-    }
-    .source-icon {
-      width: 42px;
-      height: 42px;
-      border-radius: 8px;
-      display: grid;
-      place-items: center;
-      background: rgba(255,255,255,.06);
-      color: var(--accent);
-    }
-    .source.active .source-icon { background: rgba(120,198,121,.18); }
-    .led {
-      width: 10px;
-      height: 10px;
-      border-radius: 99px;
-      border: 1px solid var(--line);
-      margin-top: 4px;
-    }
-    .source.active .led {
-      background: var(--accent);
-      border-color: var(--accent);
-      box-shadow: 0 0 14px rgba(120,198,121,.7);
-    }
-    .source-name {
-      display: block;
-      font-size: 1.15rem;
-      font-weight: 730;
-      margin-top: 3px;
-    }
-    .source-sound {
-      display: block;
-      color: var(--muted);
-      font-size: .84rem;
-      line-height: 1.35;
-    }
-    .meter {
-      height: 5px;
-      border-radius: 99px;
-      background: rgba(255,255,255,.08);
-      overflow: hidden;
-    }
-    .meter > span {
-      display: block;
-      height: 100%;
-      width: 0%;
-      border-radius: inherit;
-      background: linear-gradient(90deg, var(--accent), var(--accent-2));
-      transition: width .25s ease;
-    }
-    .mood-grid {
-      display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 10px;
-    }
-    .mood {
-      border: 1px solid var(--line);
-      border-radius: 8px;
-      background: transparent;
-      padding: 12px;
-      text-align: left;
-      cursor: pointer;
-      transition: border-color .2s ease, background .2s ease;
-    }
-    .mood:hover { border-color: var(--accent-2); }
-    .mood.active {
-      border-color: var(--accent-2);
-      background: rgba(117,170,219,.14);
-    }
-    .mood strong {
-      display: block;
-      margin-bottom: 2px;
-      font-size: .96rem;
-    }
-    .mood span {
-      display: block;
-      color: var(--muted);
-      font-size: .78rem;
-    }
-    .controls {
-      display: grid;
-      gap: 14px;
-      margin-top: 18px;
-    }
-    .control {
-      display: grid;
-      gap: 7px;
-    }
-    label {
-      display: flex;
-      justify-content: space-between;
-      gap: 10px;
-      color: var(--muted);
-      font-size: .78rem;
-      text-transform: uppercase;
-      letter-spacing: .1em;
-    }
-    input[type="range"] {
-      width: 100%;
-      accent-color: var(--accent);
-    }
-    .visual {
-      min-height: 320px;
-      display: grid;
-      grid-template-rows: auto 1fr auto;
-      gap: 14px;
-    }
-    .map {
-      position: relative;
-      min-height: 250px;
-      border: 1px solid rgba(255,255,255,.08);
-      border-radius: 8px;
-      overflow: hidden;
-      background:
-        radial-gradient(circle at 50% 52%, rgba(120,198,121,.14) 0 4px, transparent 5px),
-        radial-gradient(circle at 24% 28%, rgba(117,170,219,.16), transparent 23%),
-        radial-gradient(circle at 72% 74%, rgba(213,162,83,.14), transparent 24%),
-        linear-gradient(135deg, #182019, #101610);
-    }
-    .map::before {
-      content: "";
-      position: absolute;
-      inset: 0;
-      background-image:
-        linear-gradient(rgba(255,255,255,.035) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(255,255,255,.035) 1px, transparent 1px);
-      background-size: 32px 32px;
-      mask-image: radial-gradient(circle at center, black, transparent 78%);
-    }
-    .listener {
-      position: absolute;
-      left: 50%;
-      top: 52%;
-      width: 18px;
-      height: 18px;
-      translate: -50% -50%;
-      border-radius: 99px;
-      background: var(--text);
-      box-shadow: 0 0 0 8px rgba(239,243,232,.09), 0 0 30px rgba(239,243,232,.3);
-    }
-    .pin {
-      position: absolute;
-      width: 34px;
-      height: 34px;
-      display: grid;
-      place-items: center;
-      translate: -50% -50%;
-      border-radius: 8px;
-      background: rgba(29,37,28,.92);
-      border: 1px solid var(--line);
-      color: var(--accent);
-      opacity: 0;
-      transform: scale(.8);
-      transition: opacity .25s ease, transform .25s ease, left .8s ease, top .8s ease;
-    }
-    .pin.active {
-      opacity: 1;
-      transform: scale(1);
-    }
-    .readout {
-      display: grid;
-      grid-template-columns: repeat(4, 1fr);
-      gap: 10px;
-    }
-    .stat {
-      border: 1px solid rgba(255,255,255,.08);
-      border-radius: 8px;
-      background: rgba(255,255,255,.035);
-      padding: 10px;
-    }
-    .stat span {
-      display: block;
-      color: var(--muted);
-      font-size: .68rem;
-      text-transform: uppercase;
-      letter-spacing: .1em;
-      margin-bottom: 4px;
-    }
-    .stat strong {
-      display: block;
-      font-size: 1rem;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-    canvas {
-      width: 100%;
-      height: 88px;
-      display: block;
-      border-radius: 8px;
-      background: #0d120d;
-      border: 1px solid rgba(255,255,255,.08);
-    }
-    .toast {
-      min-height: 20px;
-      color: var(--danger);
-      font-size: .82rem;
-      margin-top: 10px;
-    }
-    @media (max-width: 840px) {
-      header, .layout { grid-template-columns: 1fr; }
-      header { align-items: start; }
-      .transport { justify-content: start; }
-      .source-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-      .readout { grid-template-columns: repeat(2, 1fr); }
-    }
-    @media (max-width: 520px) {
-      main { width: min(100% - 20px, 1120px); padding-top: 18px; }
-      section { padding: 12px; }
-      .source-grid, .mood-grid { grid-template-columns: 1fr; }
-      .source { min-height: 130px; }
-    }
-  </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Gesture2Audio Soundscape</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#07100a;
+  --surface:#0d1a0f;
+  --border:#1e3322;
+  --text:#c4d4bb;
+  --muted:#5e7a58;
+  --happy:#d4a843;
+  --sad:#5b8fc4;
+  --neutral:#7aaa7a;
+}
+html,body{height:100%;background:transparent;color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text',sans-serif}
+body{
+  display:flex;align-items:stretch;justify-content:stretch;
+  background-image:
+    radial-gradient(ellipse 60% 40% at 20% 80%,rgba(18,60,25,0.35) 0%,transparent 70%),
+    radial-gradient(ellipse 50% 30% at 80% 20%,rgba(10,30,50,0.28) 0%,transparent 70%);
+}
+.wrap{
+  width:100%;height:100%;
+  border:1px solid var(--border);
+  border-radius:12px;
+  overflow:hidden;
+  background:var(--surface);
+  display:flex;
+  flex-direction:column;
+}
+.head{
+  padding:12px 14px 8px 14px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+}
+.title{
+  font-size:13px;
+  text-transform:uppercase;
+  letter-spacing:0.12em;
+  color:var(--muted);
+}
+.mood{
+  font-size:12px;
+  font-weight:600;
+  color:var(--neutral);
+}
+.viz-wrap{position:relative;flex:1;min-height:110px}
+canvas{display:block;width:100%;height:100%}
+.unlock{
+  position:absolute;inset:0;
+  display:flex;align-items:center;justify-content:center;
+  background:rgba(6,12,8,0.24);
+  color:var(--text);
+  font-size:12px;font-weight:600;letter-spacing:0.04em;
+  transition:opacity 0.25s ease;
+}
+.unlock.hidden{
+  opacity:0;
+  pointer-events:none;
+}
+.viz-label{
+  position:absolute;bottom:8px;right:12px;
+  font-size:11px;letter-spacing:0.1em;text-transform:uppercase;
+  color:var(--muted);
+}
+.status-bar{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:10px 14px;border-top:1px solid var(--border);
+  font-size:12px;color:var(--muted);
+}
+.status-left{display:flex;align-items:center;gap:8px}
+.status-dot{
+  width:7px;height:7px;border-radius:50%;background:var(--muted);
+  transition:all 0.3s ease;
+}
+.status-dot.playing{background:var(--neutral);box-shadow:0 0 8px var(--neutral)}
+.filter-info span{
+  display:inline-block;padding:2px 6px;border-radius:999px;border:1px solid currentColor;margin-left:4px;font-size:10px;
+}
+.filter-info.happy{color:var(--happy)}
+.filter-info.sad{color:var(--sad)}
+.filter-info.neutral{color:var(--neutral)}
+</style>
 </head>
 <body>
-<main>
-  <header>
-    <div>
-      <h1>Soundscape</h1>
-      <p class="subtitle">Natural source composition with mood-level scene control</p>
-    </div>
-    <div class="transport">
-      <button class="icon-button load-button" id="load-sounds" type="button" aria-label="Load sounds" title="Load sounds">
-        <svg class="glyph" viewBox="0 0 24 24"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/></svg>
-        <span id="load-sounds-label">Load Sounds</span>
-      </button>
-      <button class="icon-button" id="shuffle" type="button" aria-label="Randomize scene" title="Randomize scene">
-        <svg class="glyph" viewBox="0 0 24 24"><path d="M16 3h5v5"/><path d="M4 20 21 3"/><path d="M21 16v5h-5"/><path d="m15 15 6 6"/><path d="M4 4l5 5"/></svg>
-      </button>
-      <button class="icon-button" id="play" type="button" aria-label="Play" title="Play">
-        <svg class="glyph play-glyph" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
-      </button>
-    </div>
-  </header>
-
-  <div class="layout">
-    <section>
-      <div class="section-head">
-        <h2>Icons</h2>
-        <h2 id="active-count">0 active</h2>
-      </div>
-      <div class="source-grid" id="source-grid"></div>
-    </section>
-
-    <section>
-      <div class="section-head">
-        <h2>Mood</h2>
-        <h2 id="mood-name">Restored</h2>
-      </div>
-      <div class="mood-grid" id="mood-grid"></div>
-
-      <div class="controls">
-        <div class="control">
-          <label for="density"><span>Density</span><strong id="density-value">70%</strong></label>
-          <input id="density" type="range" min="20" max="120" value="70">
-        </div>
-        <div class="control">
-          <label for="spread"><span>Spread</span><strong id="spread-value">62%</strong></label>
-          <input id="spread" type="range" min="10" max="100" value="62">
-        </div>
-        <div class="control">
-          <label for="variation"><span>Variation</span><strong id="variation-value">76%</strong></label>
-          <input id="variation" type="range" min="0" max="100" value="76">
-        </div>
-      </div>
-      <div class="toast" id="toast"></div>
-    </section>
-
-    <section class="visual">
-      <div class="section-head">
-        <h2>Sound Map</h2>
-        <h2 id="status">idle</h2>
-      </div>
-      <div class="map" id="map">
-        <div class="listener" aria-hidden="true"></div>
-      </div>
-      <div class="readout">
-        <div class="stat"><span>Voices</span><strong id="voices">0</strong></div>
-        <div class="stat"><span>Density</span><strong id="density-stat">0.70</strong></div>
-        <div class="stat"><span>Reverb</span><strong id="reverb-stat">0.28</strong></div>
-        <div class="stat"><span>Drift</span><strong id="drift-stat">0.76</strong></div>
-      </div>
-    </section>
-
-    <section>
-      <div class="section-head">
-        <h2>Output</h2>
-        <h2 id="scene-hash">seed 0000</h2>
-      </div>
-      <canvas id="scope" width="720" height="120"></canvas>
-    </section>
+<div class="wrap">
+  <div class="head">
+    <div class="title">Mood-Reactive Audio</div>
+    <div class="mood" id="mood-name">Neutral</div>
   </div>
-</main>
+  <div class="viz-wrap">
+    <canvas id="viz" height="120"></canvas>
+    <div class="unlock" id="unlock">Tap here once to enable audio</div>
+    <span class="viz-label">waveform</span>
+  </div>
+  <div class="status-bar">
+    <div class="status-left">
+      <span class="status-dot" id="dot"></span>
+      <span id="status-text">No sources active</span>
+    </div>
+    <div class="filter-info neutral" id="filter-info">Filter <span>-HiShelf</span></div>
+  </div>
+</div>
 
 <script>
-const ICONS = {
-  leaf: '<path d="M11 20A7 7 0 0 1 4 13c0-6 7-9 16-9-1 9-4 16-9 16Z"/><path d="M4 13c4 0 8 0 12-6"/>',
-  wave: '<path d="M3 16c2 0 2-2 4-2s2 2 4 2 2-2 4-2 2 2 4 2 2-2 4-2"/><path d="M3 11c2 0 2-2 4-2s2 2 4 2 2-2 4-2 2 2 4 2 2-2 4-2"/>',
-  tree: '<path d="M12 22v-8"/><path d="M8 18h8"/><path d="M7 14a5 5 0 1 1 10 0 4 4 0 0 1-10 0Z"/><path d="M5 11a4 4 0 1 1 6-3"/><path d="M13 8a4 4 0 1 1 6 3"/>',
-  fish: '<path d="M6.5 12c2.2-4 7.7-5.4 12.5 0-4.8 5.4-10.3 4-12.5 0Z"/><path d="m6.5 12-4 3v-6l4 3Z"/><path d="M15 12h.01"/>',
-  cloud: '<path d="M17.5 18H7a4 4 0 1 1 .8-7.9A6 6 0 0 1 19 12a3 3 0 0 1-1.5 6Z"/><path d="M8 21v-1"/><path d="M12 22v-2"/><path d="M16 21v-1"/>',
-  bird: '<path d="M4 19c6-1 10-5 12-12 2 3 3 6 4 10"/><path d="M10 12c-2-3-4-4-7-4 2 4 5 6 9 6"/><path d="M16 7l3-3"/><path d="M17 7h3"/>'
+const FADE_IN = 1.4;
+const FADE_OUT = 1.2;
+const SOURCE_TARGET_GAIN = {
+  leaf: 0.46,
+  tree: 0.42,
+  birds: 0.72,
+  ocean: 0.54,
+  river: 0.58,
+  rain: 0.44
+};
+const DSP_BADGES = {
+  happy: "<span>+HiShelf</span><span>+Mid</span><span>+Pres</span>",
+  sad: "<span>LowPass</span><span>+Bass</span><span>-Bright</span>",
+  neutral: "<span>-HiShelf</span>"
+};
+const FILTER_CLASSES = {
+  happy: "happy",
+  sad: "sad",
+  neutral: "neutral"
+};
+const MOOD_TITLES = {
+  happy: "Happy",
+  sad: "Sad",
+  neutral: "Neutral"
+};
+const SOURCE_STATUS = {
+  leaf: "Leaves",
+  tree: "Forest",
+  birds: "Birds",
+  ocean: "Ocean",
+  river: "River",
+  rain: "Rain"
+};
+const MOOD_COLORS = {
+  happy: "#d4a843",
+  sad: "#5b8fc4",
+  neutral: "#7aaa7a"
 };
 
-const SAMPLE_LIBRARY_URL = 'data/sample-library.json';
-
-const SOURCES = [
-  { id: 'leaf', icon: 'leaf', name: 'Leaf', sound: 'rustling leaves (50 samples)', layers: [{ pool: 'leaf', gain: .48, voices: 3, ceiling: .95 }], base: .52, color: '#78c679' },
-  { id: 'wave', icon: 'wave', name: 'Wave', sound: 'ocean sound (50 samples)', layers: [{ pool: 'wave', gain: .46, voices: 2, ceiling: .82 }], base: .66, color: '#75aadb' },
-  { id: 'tree', icon: 'tree', name: 'Tree', sound: 'forest sound (50 samples)', layers: [{ pool: 'tree', gain: .44, voices: 2, ceiling: .88 }], base: .58, color: '#91b66c' },
-  { id: 'fish', icon: 'fish', name: 'Fish', sound: 'river flowing sound (50 samples)', layers: [{ pool: 'fish', gain: .5, voices: 2, ceiling: .86 }], base: .64, color: '#7fb7d8' },
-  { id: 'cloud', icon: 'cloud', name: 'Cloud', sound: 'rain sound (50 samples)', layers: [{ pool: 'cloud', gain: .44, voices: 4, ceiling: .84 }], base: .58, color: '#b1bfca' },
-  { id: 'bird', icon: 'bird', name: 'Bird', sound: 'bird chirps (50 samples)', layers: [{ pool: 'bird', gain: .78, ceiling: 1.18, voices: 3, event: true }], base: .74, color: '#d5a253' }
-];
-
-const MOODS = {
-  restored: { label: 'Restored', detail: 'balanced natural mix', density: 1, rate: 1, reverb: .28, lowpass: 14500, highShelf: 1.6, warmth: .5, source: {} },
-  calm: { label: 'Calm', detail: 'soft, slower, spacious', density: .72, rate: .94, reverb: .48, lowpass: 7600, highShelf: -2.6, warmth: 1.8, source: { bird: .72, leaf: .82, wave: 1.04, fish: 1.02 } },
-  bright: { label: 'Bright', detail: 'clear, close, lively', density: 1.22, rate: 1.04, reverb: .18, lowpass: 18000, highShelf: 3.5, warmth: .3, source: { bird: 1.28, leaf: 1.1, cloud: .72 } },
-  dusk: { label: 'Dusk', detail: 'darker, wider, distant', density: .86, rate: .88, reverb: .58, lowpass: 5200, highShelf: -4, warmth: 2.8, source: { bird: .55, cloud: 1.12, tree: 1.18, wave: .9 } }
-};
-
-const state = {
-  selected: new Set(),
-  mood: 'restored',
-  playing: false,
-  density: .7,
-  spread: .62,
-  variation: .76,
-  seed: Math.floor(Math.random() * 10000),
-  preloadLoaded: 0,
-  preloadTotal: 0
-};
-
-const grid = document.getElementById('source-grid');
-const moodGrid = document.getElementById('mood-grid');
-const map = document.getElementById('map');
-const playBtn = document.getElementById('play');
-const shuffleBtn = document.getElementById('shuffle');
-const loadSoundsBtn = document.getElementById('load-sounds');
-const loadSoundsLabel = document.getElementById('load-sounds-label');
-const toast = document.getElementById('toast');
-const meters = new Map();
-const pins = new Map();
-
-function iconSvg(name) {
-  return `<svg class="glyph" viewBox="0 0 24 24" aria-hidden="true">${ICONS[name]}</svg>`;
-}
-
-function renderUI() {
-  grid.innerHTML = SOURCES.map(s => `
-    <button class="source" type="button" data-source="${s.id}" aria-label="${s.name}: ${s.sound}">
-      <span class="source-top">
-        <span class="source-icon">${iconSvg(s.icon)}</span>
-        <span class="led"></span>
-      </span>
-      <span>
-        <span class="source-name">${s.name}</span>
-        <span class="source-sound">${s.sound}</span>
-      </span>
-      <span class="meter"><span></span></span>
-    </button>
-  `).join('');
-
-  moodGrid.innerHTML = Object.entries(MOODS).map(([id, mood]) => `
-    <button class="mood ${id === state.mood ? 'active' : ''}" type="button" data-mood="${id}" aria-label="${mood.label} mood">
-      <strong>${mood.label}</strong>
-      <span>${mood.detail}</span>
-    </button>
-  `).join('');
-
-  for (const source of SOURCES) {
-    const pin = document.createElement('div');
-    pin.className = 'pin';
-    pin.dataset.pin = source.id;
-    pin.style.color = source.color;
-    pin.innerHTML = iconSvg(source.icon);
-    map.appendChild(pin);
-    pins.set(source.id, pin);
-  }
-
-  document.querySelectorAll('.source').forEach(button => {
-    const id = button.dataset.source;
-    meters.set(id, button.querySelector('.meter span'));
-    button.addEventListener('click', async () => {
-      await engine.ensure();
-      if (state.selected.has(id)) {
-        state.selected.delete(id);
-        engine.stopSource(id);
-      } else {
-        state.selected.add(id);
-        await engine.startSource(id);
-      }
-      state.playing = state.selected.size > 0;
-      syncUI();
-    });
-  });
-
-  document.querySelectorAll('.mood').forEach(button => {
-    button.addEventListener('click', () => {
-      state.mood = button.dataset.mood;
-      engine.applyMood();
-      syncUI();
-    });
-  });
-}
-
-function syncUI() {
-  document.querySelectorAll('.source').forEach(button => {
-    const active = state.selected.has(button.dataset.source);
-    button.classList.toggle('active', active);
-    pins.get(button.dataset.source).classList.toggle('active', active);
-  });
-  document.querySelectorAll('.mood').forEach(button => {
-    button.classList.toggle('active', button.dataset.mood === state.mood);
-  });
-  const mood = MOODS[state.mood];
-  document.getElementById('active-count').textContent = `${state.selected.size} active`;
-  document.getElementById('mood-name').textContent = mood.label;
-  let status = state.selected.size ? 'rendering' : 'idle';
-  if (!state.selected.size && state.preloadTotal > 0 && state.preloadLoaded < state.preloadTotal) {
-    status = `preloading ${state.preloadLoaded}/${state.preloadTotal}`;
-  }
-  if (!state.selected.size && state.preloadTotal > 0 && state.preloadLoaded === state.preloadTotal) {
-    status = 'ready';
-  }
-  document.getElementById('status').textContent = status;
-  if (state.preloadTotal === 0) {
-    loadSoundsLabel.textContent = 'Load Sounds';
-    loadSoundsBtn.disabled = false;
-    loadSoundsBtn.classList.remove('active');
-  } else if (state.preloadLoaded < state.preloadTotal) {
-    loadSoundsLabel.textContent = `${state.preloadLoaded}/${state.preloadTotal}`;
-    loadSoundsBtn.disabled = true;
-    loadSoundsBtn.classList.add('active');
-  } else {
-    loadSoundsLabel.textContent = 'Ready';
-    loadSoundsBtn.disabled = true;
-    loadSoundsBtn.classList.add('active');
-  }
-  document.getElementById('density-stat').textContent = (state.density * mood.density).toFixed(2);
-  document.getElementById('reverb-stat').textContent = mood.reverb.toFixed(2);
-  document.getElementById('drift-stat').textContent = state.variation.toFixed(2);
-  document.getElementById('scene-hash').textContent = `seed ${String(state.seed).padStart(4, '0')}`;
-  playBtn.classList.toggle('active', state.playing);
-  playBtn.title = state.playing ? 'Pause' : 'Play';
-  playBtn.setAttribute('aria-label', state.playing ? 'Pause' : 'Play');
-  playBtn.innerHTML = state.playing
-    ? '<svg class="glyph" viewBox="0 0 24 24"><path d="M8 5v14"/><path d="M16 5v14"/></svg>'
-    : '<svg class="glyph" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>';
-}
-
-function rand(min, max) {
-  return min + Math.random() * (max - min);
-}
-
-function pickWindow(buffer, variation) {
-  const duration = buffer.duration;
-  if (duration < 8) return { start: 0, end: duration };
-  const length = Math.min(duration, rand(8, 22) * (1 + variation * .55));
-  const start = rand(0, Math.max(.01, duration - length));
-  return { start, end: start + length };
-}
-
-class SoundscapeEngine {
+class SoundEngine {
   constructor() {
     this.ctx = null;
-    this.master = null;
     this.analyser = null;
-    this.buffers = new Map();
-    this.loading = new Map();
-    this.loudness = new Map();
-    this.sampleLibrary = null;
-    this.groups = new Map();
-    this.scheduler = null;
-    this.noiseBuffer = null;
-    this.preloadPromise = null;
-    this.preloadMinimumReady = 4;
+    this.nodes = {};
+    this.buffers = {};
+    this.loading = {};
+    this.activeSounds = new Set();
+    this.mood = "neutral";
+    this.ready = false;
   }
 
-  async ensure() {
-    if (this.ctx) {
-      await this.ctx.resume();
-      return;
+  async init() {
+    if (!this.ctx) {
+      this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+      if (navigator.audioSession && navigator.audioSession.type !== "playback") {
+        try {
+          navigator.audioSession.type = "playback";
+        } catch (_) {}
+      }
+      this.analyser = this.ctx.createAnalyser();
+      this.analyser.fftSize = 2048;
+      this.analyser.smoothingTimeConstant = 0.85;
+      this.analyser.connect(this.ctx.destination);
+      this.ready = true;
     }
-    const AudioContext = window.AudioContext || window.webkitAudioContext;
-    this.ctx = new AudioContext();
-    this.master = this.ctx.createGain();
-    this.master.gain.value = .9;
-    this.lowpass = this.ctx.createBiquadFilter();
-    this.lowpass.type = 'lowpass';
-    this.shelf = this.ctx.createBiquadFilter();
-    this.shelf.type = 'highshelf';
-    this.shelf.frequency.value = 5200;
-    this.warmth = this.ctx.createBiquadFilter();
-    this.warmth.type = 'lowshelf';
-    this.warmth.frequency.value = 240;
-    this.dry = this.ctx.createGain();
-    this.wet = this.ctx.createGain();
-    this.limiter = this.ctx.createDynamicsCompressor();
-    this.limiter.threshold.value = -16;
-    this.limiter.knee.value = 18;
-    this.limiter.ratio.value = 8;
-    this.limiter.attack.value = .006;
-    this.limiter.release.value = .22;
-    this.reverb = this.ctx.createConvolver();
-    this.reverb.buffer = this.makeImpulse(2.4);
-    this.analyser = this.ctx.createAnalyser();
-    this.analyser.fftSize = 2048;
-    this.analyser.smoothingTimeConstant = .82;
-    this.master.connect(this.lowpass);
-    this.lowpass.connect(this.shelf);
-    this.shelf.connect(this.warmth);
-    this.warmth.connect(this.dry);
-    this.warmth.connect(this.reverb);
-    this.reverb.connect(this.wet);
-    this.dry.connect(this.limiter);
-    this.wet.connect(this.limiter);
-    this.limiter.connect(this.analyser);
-    this.analyser.connect(this.ctx.destination);
-    this.applyMood(true);
-    this.scheduler = window.setInterval(() => this.tick(), 950);
-    await this.ctx.resume();
+    if (this.ctx.state === "suspended") {
+      await this.ctx.resume();
+    }
   }
 
-  makeImpulse(seconds) {
-    const length = Math.floor(this.ctx.sampleRate * seconds);
-    const impulse = this.ctx.createBuffer(2, length, this.ctx.sampleRate);
-    for (let ch = 0; ch < 2; ch++) {
-      const data = impulse.getChannelData(ch);
-      for (let i = 0; i < length; i++) {
-        const decay = Math.pow(1 - i / length, 2.2);
-        data[i] = (Math.random() * 2 - 1) * decay;
+  async loadBuffer(name) {
+    if (this.buffers[name]) {
+      return this.buffers[name];
+    }
+    if (this.loading[name]) {
+      return this.loading[name];
+    }
+    if (this.isProceduralSource(name)) {
+      const buffer = this.buildProceduralBuffer(name);
+      this.buffers[name] = buffer;
+      return buffer;
+    }
+    const configuredURL = window.g2aAssetURLs && window.g2aAssetURLs[name]
+      ? window.g2aAssetURLs[name]
+      : null;
+    const candidates = [configuredURL, `${name}.wav`, `audio/${name}.wav`]
+      .filter((candidate, index, values) => candidate && values.indexOf(candidate) === index);
+    this.loading[name] = this.loadFirstAvailableBuffer(name, candidates);
+    return this.loading[name];
+  }
+
+  async loadFirstAvailableBuffer(name, candidates) {
+    let lastError = null;
+    for (const assetURL of candidates) {
+      try {
+        const response = await fetch(assetURL);
+        if (!response.ok) {
+          throw new Error(`Cannot load ${assetURL}`);
+        }
+        const arrayBuffer = await response.arrayBuffer();
+        const buffer = await this.ctx.decodeAudioData(arrayBuffer);
+        this.buffers[name] = buffer;
+        delete this.loading[name];
+        return buffer;
+      } catch (error) {
+        lastError = error;
       }
     }
-    return impulse;
+
+    delete this.loading[name];
+    postBridgeMessage({
+      type: "error",
+      message: lastError && lastError.message ? lastError.message : `Audio load failed for ${name}`
+    });
+    throw lastError || new Error(`Audio load failed for ${name}`);
   }
 
-  makeNoise() {
-    if (this.noiseBuffer) return this.noiseBuffer;
-    const length = this.ctx.sampleRate * 8;
-    const buffer = this.ctx.createBuffer(1, length, this.ctx.sampleRate);
-    const data = buffer.getChannelData(0);
-    let last = 0;
-    for (let i = 0; i < length; i++) {
-      last = last * .985 + (Math.random() * 2 - 1) * .015;
-      data[i] = last * 2.8;
+  isProceduralSource(name) {
+    return ["leaf", "tree", "ocean", "rain"].includes(name);
+  }
+
+  buildProceduralBuffer(name) {
+    const sampleRate = this.ctx.sampleRate;
+    const duration = name === "rain" ? 5.5 : 7.5;
+    const frameCount = Math.floor(sampleRate * duration);
+    const buffer = this.ctx.createBuffer(2, frameCount, sampleRate);
+
+    for (let channel = 0; channel < 2; channel++) {
+      const data = buffer.getChannelData(channel);
+      let drift = 0;
+      let slow = 0;
+      for (let i = 0; i < frameCount; i++) {
+        const time = i / sampleRate;
+        const noise = Math.random() * 2 - 1;
+        drift = drift * 0.985 + noise * 0.015;
+        slow = slow * 0.9992 + noise * 0.0008;
+
+        if (name === "leaf") {
+          const gust = 0.35 + 0.65 * Math.max(0, Math.sin(time * 1.7 + channel * 0.9));
+          const flutter = Math.sin(time * 31 + drift * 8) * 0.18;
+          data[i] = (noise * 0.22 + drift * 0.55 + flutter) * gust;
+        } else if (name === "tree") {
+          const canopy = slow * 1.6 + drift * 0.38;
+          const branch = Math.sin(time * 2.1 + channel) * 0.055;
+          data[i] = canopy + branch;
+        } else if (name === "ocean") {
+          const swell = 0.42 + 0.58 * Math.pow((Math.sin(time * 0.72 + channel * 0.5) + 1) / 2, 1.7);
+          const foam = noise * 0.14 + drift * 0.75;
+          data[i] = foam * swell + slow * 0.45;
+        } else if (name === "rain") {
+          const drop = Math.random() > 0.955 ? (Math.random() * 2 - 1) * 0.9 : 0;
+          const hiss = noise * 0.18;
+          data[i] = hiss + drop + drift * 0.12;
+        }
+      }
+      this.applyLoopFade(data, sampleRate, 0.08);
+      this.normalizeChannel(data, 0.62);
     }
-    this.noiseBuffer = buffer;
+
     return buffer;
   }
 
-  async ensureSampleLibrary() {
-    if (this.sampleLibrary) return;
-    const response = await fetch(SAMPLE_LIBRARY_URL);
-    if (!response.ok) throw new Error('Could not load sample library');
-    this.sampleLibrary = await response.json();
-  }
-
-  layerKey(layer) {
-    return layer.pool ?? layer.file;
-  }
-
-  layerPool(layer) {
-    if (!layer.pool) return [];
-    return this.sampleLibrary?.categories?.[layer.pool]?.samples ?? [];
-  }
-
-  shuffleList(list) {
-    const copy = [...list];
-    for (let i = copy.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [copy[i], copy[j]] = [copy[j], copy[i]];
-    }
-    return copy;
-  }
-
-  targetVoices(layer) {
-    const mood = MOODS[state.mood];
-    return Math.max(1, Math.round(layer.voices * state.density * mood.density));
-  }
-
-  buildPreloadQueue() {
-    const categories = Object.values(this.sampleLibrary?.categories ?? {});
-    const heads = [];
-    const tails = [];
-    for (const category of categories) {
-      const shuffled = this.shuffleList(category.samples);
-      heads.push(shuffled.slice(0, this.preloadMinimumReady));
-      tails.push(shuffled.slice(this.preloadMinimumReady));
-    }
-    const queue = [];
-    let pending = true;
-    while (pending) {
-      pending = false;
-      for (const head of heads) {
-        if (head.length) {
-          queue.push(head.shift());
-          pending = true;
-        }
-      }
-    }
-    for (const tail of tails) queue.push(...tail);
-    const seen = new Set();
-    return queue.filter(sample => {
-      if (!sample?.url || seen.has(sample.url)) return false;
-      seen.add(sample.url);
-      return true;
-    });
-  }
-
-  updatePreloadState(loaded, total) {
-    state.preloadLoaded = loaded;
-    state.preloadTotal = total;
-    syncUI();
-  }
-
-  async runPreloadQueue(queue) {
-    const concurrency = 6;
-    let index = 0;
-    let loaded = 0;
-    const worker = async () => {
-      while (index < queue.length) {
-        const sample = queue[index++];
-        try {
-          await this.load(sample.url);
-        } catch {}
-        loaded++;
-        this.updatePreloadState(loaded, queue.length);
-      }
-    };
-    const workers = [];
-    for (let i = 0; i < concurrency; i++) workers.push(worker());
-    await Promise.all(workers);
-  }
-
-  async ensurePreloadStarted() {
-    if (this.preloadPromise) return this.preloadPromise;
-    await this.ensure();
-    await this.ensureSampleLibrary();
-    const queue = this.buildPreloadQueue();
-    this.updatePreloadState(0, queue.length);
-    this.preloadPromise = this.runPreloadQueue(queue).catch(error => {
-      this.preloadPromise = null;
-      throw error;
-    });
-    return this.preloadPromise;
-  }
-
-  readyPoolSamples(pool) {
-    return this.layerPool({ pool }).filter(sample => this.buffers.has(sample.url));
-  }
-
-  async ensurePoolReady(pool, minimum = 1) {
-    const ready = this.readyPoolSamples(pool);
-    if (ready.length >= minimum) return;
-    const picks = this.shuffleList(this.layerPool({ pool })).slice(0, minimum);
-    for (const sample of picks) {
-      try {
-        await this.load(sample.url);
-      } catch {}
+  applyLoopFade(data, sampleRate, seconds) {
+    const length = Math.min(data.length >> 1, Math.floor(sampleRate * seconds));
+    for (let i = 0; i < length; i++) {
+      const amount = i / length;
+      data[i] *= amount;
+      data[data.length - 1 - i] *= amount;
     }
   }
 
-  async load(file) {
-    if (this.buffers.has(file)) return this.buffers.get(file);
-    if (this.loading.has(file)) return this.loading.get(file);
-    const task = fetch(file)
-      .then(response => {
-        if (!response.ok) throw new Error(`Could not load ${file}`);
-        return response.arrayBuffer();
-      })
-      .then(arrayBuffer => this.ctx.decodeAudioData(arrayBuffer))
-      .then(buffer => {
-        this.buffers.set(file, buffer);
-        this.loudness.set(file, this.measureLoudness(buffer));
-        this.loading.delete(file);
-        return buffer;
-      })
-      .catch(error => {
-        this.loading.delete(file);
-        throw error;
-      });
-    this.loading.set(file, task);
-    return task;
-  }
-
-  measureLoudness(buffer) {
-    const windowSize = Math.max(1024, Math.floor(buffer.sampleRate * .2));
-    const stride = Math.max(1, Math.floor(windowSize / 4));
-    const windows = [];
-    for (let start = 0; start < buffer.length; start += stride) {
-      let sum = 0;
-      let count = 0;
-      for (let ch = 0; ch < buffer.numberOfChannels; ch++) {
-        const data = buffer.getChannelData(ch);
-        const end = Math.min(buffer.length, start + windowSize);
-        for (let i = start; i < end; i += 32) {
-          sum += data[i] * data[i];
-          count++;
-        }
-      }
-      if (count) windows.push(Math.sqrt(sum / count));
-    }
-    windows.sort((a, b) => b - a);
-    const active = windows.slice(0, Math.max(1, Math.floor(windows.length * .35)));
-    const rms = active.reduce((sum, value) => sum + value, 0) / active.length;
-    const target = .14;
-    return Math.max(.42, Math.min(3.8, target / Math.max(rms, .001)));
-  }
-
-  async startSource(id) {
-    const source = SOURCES.find(s => s.id === id);
-    if (!source) return;
-    toast.textContent = '';
-    try {
-      await this.ensureSampleLibrary();
-      const group = { source, voices: [], energy: 0, nextEvent: 0, sampleDecks: new Map() };
-      for (const layer of source.layers) {
-        await this.prepareLayerDeck(group, layer);
-      }
-      this.groups.set(id, group);
-      this.randomizePin(id);
-      this.ensureVoiceCount(id);
-      if (source.noise) this.startNoiseBed(id);
-    } catch (error) {
-      state.selected.delete(id);
-      toast.textContent = error.message;
-    }
-  }
-
-  async prepareLayerDeck(group, layer) {
-    const key = this.layerKey(layer);
-    if (group.sampleDecks.has(key)) return;
-    let picks;
-    if (layer.file) {
-      picks = [{ url: layer.file, title: layer.file }];
-      await this.load(layer.file);
-    } else {
-      const pool = this.layerPool(layer);
-      if (pool.length === 0) throw new Error(`No samples available for ${layer.pool}`);
-      await this.ensurePoolReady(layer.pool, this.preloadMinimumReady);
-      picks = pool;
-    }
-    group.sampleDecks.set(key, picks);
-  }
-
-  startNoiseBed(id) {
-    const group = this.groups.get(id);
-    if (!group || group.noise) return;
-    const src = this.ctx.createBufferSource();
-    src.buffer = this.makeNoise();
-    src.loop = true;
-    const filter = this.ctx.createBiquadFilter();
-    filter.type = 'bandpass';
-    filter.frequency.value = 900;
-    filter.Q.value = .45;
-    const gain = this.ctx.createGain();
-    gain.gain.value = 0;
-    src.connect(filter);
-    filter.connect(gain);
-    gain.connect(this.master);
-    src.start();
-    gain.gain.linearRampToValueAtTime(.09, this.ctx.currentTime + 2);
-    group.noise = { src, gain, filter };
-  }
-
-  stopSource(id) {
-    const group = this.groups.get(id);
-    if (!group) return;
-    const t = this.ctx.currentTime;
-    for (const voice of group.voices) this.releaseVoice(voice, t);
-    if (group.noise) {
-      group.noise.gain.gain.cancelScheduledValues(t);
-      group.noise.gain.gain.linearRampToValueAtTime(0, t + 1.1);
-      group.noise.src.stop(t + 1.2);
-    }
-    this.groups.delete(id);
-  }
-
-  releaseVoice(voice, t = this.ctx.currentTime) {
-    voice.gain.gain.cancelScheduledValues(t);
-    voice.gain.gain.setTargetAtTime(.0001, t, .24);
-    try { voice.src.stop(t + 1.2); } catch {}
-  }
-
-  sourceGain(id) {
-    const mood = MOODS[state.mood];
-    return mood.source[id] ?? 1;
-  }
-
-  layerGain(layer, file) {
-    return Math.min(layer.ceiling ?? 1.2, layer.gain * (this.loudness.get(file ?? layer.file) ?? 1));
-  }
-
-  makeVoice(group, layer) {
-    const mood = MOODS[state.mood];
-    const deck = group.sampleDecks.get(this.layerKey(layer)) ?? [];
-    const readyDeck = deck.filter(sample => this.buffers.has(sample.url ?? sample.file));
-    const samplePool = readyDeck.length ? readyDeck : deck;
-    const sample = samplePool[Math.floor(Math.random() * samplePool.length)];
-    if (!sample) return null;
-    const activeUrl = sample.url ?? sample.file ?? layer.file;
-    const buffer = this.buffers.get(activeUrl);
-    if (!buffer) return null;
-    const src = this.ctx.createBufferSource();
-    const pan = this.ctx.createStereoPanner();
-    const filter = this.ctx.createBiquadFilter();
-    const gain = this.ctx.createGain();
-    const window = pickWindow(buffer, state.variation);
-    const sourceAmount = group.source.base * this.layerGain(layer, activeUrl) * this.sourceGain(group.source.id);
-    const jitter = 1 + rand(-.24, .24) * state.variation;
-    src.buffer = buffer;
-    src.loop = true;
-    src.loopStart = window.start;
-    src.loopEnd = window.end;
-    src.playbackRate.value = mood.rate * (1 + rand(-.045, .055) * state.variation);
-    filter.type = 'bandpass';
-    filter.frequency.value = rand(420, 6200) * (mood.lowpass / 12000);
-    filter.Q.value = rand(.35, 1.3);
-    pan.pan.value = rand(-state.spread, state.spread);
-    gain.gain.value = .0001;
-    src.connect(filter);
-    filter.connect(pan);
-    pan.connect(gain);
-    gain.connect(this.master);
-    const t = this.ctx.currentTime;
-    gain.gain.setTargetAtTime(Math.max(.01, sourceAmount * jitter * .34), t + rand(.02, .18), .75);
-    src.start(t + rand(.02, .12), window.start);
-    return { src, gain, pan, filter, layer, file: activeUrl, born: t, energy: sourceAmount };
-  }
-
-  ensureVoiceCount(id) {
-    const group = this.groups.get(id);
-    if (!group) return;
-    for (const layer of group.source.layers) {
-      const target = this.targetVoices(layer);
-      const current = group.voices.filter(v => v.layer === layer).length;
-      for (let i = current; i < target; i++) {
-        const voice = this.makeVoice(group, layer);
-        if (voice) group.voices.push(voice);
-      }
-      if (current > target) {
-        const extras = group.voices.filter(v => v.layer === layer).slice(0, current - target);
-        extras.forEach(v => this.releaseVoice(v));
-        group.voices = group.voices.filter(v => !extras.includes(v));
-      }
-    }
-  }
-
-  tick() {
-    if (!this.ctx) return;
-    let total = 0;
-    for (const [id, group] of this.groups) {
-      this.ensureVoiceCount(id);
-      this.driftGroup(id, group);
-      total += group.voices.length + (group.noise ? 1 : 0);
-    }
-    document.getElementById('voices').textContent = String(total);
-  }
-
-  driftGroup(id, group) {
-    const t = this.ctx.currentTime;
-    const amount = state.variation;
-    group.energy = 0;
-    for (const voice of group.voices) {
-      const gainTarget = Math.max(.01, group.source.base * this.layerGain(voice.layer, voice.file) * this.sourceGain(id) * rand(.2, .48));
-      voice.gain.gain.setTargetAtTime(gainTarget, t, rand(.6, 1.9));
-      voice.pan.pan.setTargetAtTime(rand(-state.spread, state.spread), t, rand(1.2, 3.2));
-      voice.filter.frequency.setTargetAtTime(rand(360, MOODS[state.mood].lowpass) * rand(.72, 1.12), t, rand(.8, 2.4));
-      voice.src.playbackRate.setTargetAtTime(MOODS[state.mood].rate * (1 + rand(-.035, .04) * amount), t, 1.4);
-      group.energy += gainTarget;
-    }
-    if (group.noise) {
-      group.noise.gain.gain.setTargetAtTime(.045 + .08 * state.density * this.sourceGain(id), t, 1.8);
-      group.noise.filter.frequency.setTargetAtTime(rand(480, 1600), t, 2.4);
-      group.energy += group.noise.gain.gain.value;
-    }
-    const meter = meters.get(id);
-    if (meter) meter.style.width = `${Math.min(100, group.energy * 90)}%`;
-    if (Math.random() < .36 + amount * .42) this.randomizePin(id);
-  }
-
-  randomizePin(id) {
-    const pin = pins.get(id);
-    if (!pin) return;
-    const radius = 16 + state.spread * 34;
-    const angle = rand(0, Math.PI * 2);
-    const x = 50 + Math.cos(angle) * radius * rand(.28, 1);
-    const y = 52 + Math.sin(angle) * radius * rand(.22, .9);
-    pin.style.left = `${Math.max(8, Math.min(92, x))}%`;
-    pin.style.top = `${Math.max(10, Math.min(90, y))}%`;
-  }
-
-  applyMood(initial = false) {
-    if (!this.ctx) return;
-    const mood = MOODS[state.mood];
-    const t = this.ctx.currentTime;
-    const ramp = initial ? .01 : .8;
-    this.lowpass.frequency.setTargetAtTime(mood.lowpass, t, ramp);
-    this.shelf.gain.setTargetAtTime(mood.highShelf, t, ramp);
-    this.warmth.gain.setTargetAtTime(mood.warmth, t, ramp);
-    this.wet.gain.setTargetAtTime(mood.reverb, t, ramp);
-    this.dry.gain.setTargetAtTime(1 - mood.reverb * .32, t, ramp);
-    for (const id of this.groups.keys()) this.ensureVoiceCount(id);
-  }
-
-  pauseAll() {
-    for (const id of [...this.groups.keys()]) this.stopSource(id);
-    state.playing = false;
-  }
-
-  async playSelected() {
-    await this.ensure();
-    for (const id of state.selected) {
-      if (!this.groups.has(id)) await this.startSource(id);
-    }
-    state.playing = state.selected.size > 0;
-  }
-}
-
-const engine = new SoundscapeEngine();
-
-loadSoundsBtn.addEventListener('click', () => {
-  toast.textContent = '';
-  engine.ensurePreloadStarted().catch(error => {
-    toast.textContent = error.message;
-    loadSoundsBtn.disabled = false;
-  });
-});
-
-playBtn.addEventListener('click', async () => {
-  if (state.playing) {
-    engine.pauseAll();
-  } else {
-    if (state.selected.size === 0) {
-      state.selected.add('tree');
-      state.selected.add('bird');
-      state.selected.add('fish');
-    }
-    await engine.playSelected();
-  }
-  syncUI();
-});
-
-shuffleBtn.addEventListener('click', async () => {
-  state.seed = Math.floor(Math.random() * 10000);
-  const ids = SOURCES.map(s => s.id).sort(() => Math.random() - .5).slice(0, rand(2, 5));
-  for (const id of [...state.selected]) {
-    if (!ids.includes(id)) engine.stopSource(id);
-  }
-  state.selected = new Set(ids);
-  if (engine.ctx) await engine.playSelected();
-  for (const id of state.selected) engine.randomizePin(id);
-  state.playing = state.selected.size > 0 && !!engine.ctx;
-  syncUI();
-});
-
-for (const [id, key] of [['density', 'density'], ['spread', 'spread'], ['variation', 'variation']]) {
-  const input = document.getElementById(id);
-  const value = document.getElementById(`${id}-value`);
-  input.addEventListener('input', () => {
-    state[key] = Number(input.value) / 100;
-    value.textContent = `${input.value}%`;
-    engine.applyMood();
-    syncUI();
-  });
-}
-
-const canvas = document.getElementById('scope');
-const c = canvas.getContext('2d');
-function scopeLoop() {
-  requestAnimationFrame(scopeLoop);
-  const w = canvas.width;
-  const h = canvas.height;
-  c.clearRect(0, 0, w, h);
-  c.fillStyle = '#0d120d';
-  c.fillRect(0, 0, w, h);
-  c.strokeStyle = SOURCES.find(s => state.selected.has(s.id))?.color || '#78c679';
-  c.lineWidth = 2;
-  c.globalAlpha = .92;
-  c.beginPath();
-  if (engine.analyser && state.playing) {
-    const data = new Uint8Array(engine.analyser.frequencyBinCount);
-    engine.analyser.getByteTimeDomainData(data);
-    const step = w / data.length;
+  normalizeChannel(data, peak) {
+    let max = 0;
     for (let i = 0; i < data.length; i++) {
-      const y = (data[i] / 255) * h;
-      i === 0 ? c.moveTo(0, y) : c.lineTo(i * step, y);
+      max = Math.max(max, Math.abs(data[i]));
     }
-  } else {
-    const t = performance.now() * .001;
-    for (let x = 0; x <= w; x += 4) {
-      const y = h * .5 + Math.sin(x * .025 + t) * 10 + Math.sin(x * .009 - t * 1.7) * 7;
-      x === 0 ? c.moveTo(x, y) : c.lineTo(x, y);
+    if (max < 0.0001) {
+      return;
+    }
+    const scale = peak / max;
+    for (let i = 0; i < data.length; i++) {
+      data[i] *= scale;
     }
   }
-  c.stroke();
-  c.globalAlpha = 1;
+
+  buildFilters(mood) {
+    const c = this.ctx;
+    if (mood === "happy") {
+      const lo = c.createBiquadFilter();
+      lo.type = "peaking";
+      lo.frequency.value = 900;
+      lo.Q.value = 1.2;
+      lo.gain.value = 3.5;
+
+      const mid = c.createBiquadFilter();
+      mid.type = "peaking";
+      mid.frequency.value = 2800;
+      mid.Q.value = 1.8;
+      mid.gain.value = 4;
+
+      const hi = c.createBiquadFilter();
+      hi.type = "highshelf";
+      hi.frequency.value = 5500;
+      hi.gain.value = 5;
+
+      lo.connect(mid);
+      mid.connect(hi);
+      return [lo, mid, hi];
+    }
+
+    if (mood === "sad") {
+      const lp = c.createBiquadFilter();
+      lp.type = "lowpass";
+      lp.frequency.value = 1100;
+      lp.Q.value = 0.7;
+
+      const bass = c.createBiquadFilter();
+      bass.type = "peaking";
+      bass.frequency.value = 220;
+      bass.Q.value = 2.2;
+      bass.gain.value = 5.5;
+
+      const cut = c.createBiquadFilter();
+      cut.type = "peaking";
+      cut.frequency.value = 3500;
+      cut.Q.value = 1;
+      cut.gain.value = -4;
+
+      lp.connect(bass);
+      bass.connect(cut);
+      return [lp, bass, cut];
+    }
+
+    const smooth = c.createBiquadFilter();
+    smooth.type = "highshelf";
+    smooth.frequency.value = 9000;
+    smooth.gain.value = -1.5;
+    return [smooth];
+  }
+
+  playbackRate(mood) {
+    return mood === "happy" ? 1.045 : mood === "sad" ? 0.92 : 1.0;
+  }
+
+  startSound(name, mood, buffer) {
+    if (this.nodes[name]) {
+      this.fadeOut(name);
+    }
+
+    const source = this.ctx.createBufferSource();
+    source.buffer = buffer;
+    source.loop = true;
+    source.playbackRate.value = this.playbackRate(mood);
+
+    const chain = this.buildFilters(mood);
+    const gain = this.ctx.createGain();
+    const target = SOURCE_TARGET_GAIN[name] || 0.5;
+    gain.gain.setValueAtTime(0.0001, this.ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(target, this.ctx.currentTime + FADE_IN);
+
+    source.connect(chain[0]);
+    chain[chain.length - 1].connect(gain);
+    gain.connect(this.analyser);
+    source.start();
+
+    this.nodes[name] = { source, gain, chain };
+    this.activeSounds.add(name);
+    this.reportState();
+  }
+
+  fadeOut(name) {
+    const node = this.nodes[name];
+    if (!node) {
+      return;
+    }
+    const time = this.ctx.currentTime;
+    node.gain.gain.setValueAtTime(Math.max(node.gain.gain.value, 0.0001), time);
+    node.gain.gain.exponentialRampToValueAtTime(0.0001, time + FADE_OUT);
+    node.source.stop(time + FADE_OUT + 0.05);
+    delete this.nodes[name];
+  }
+
+  stopSound(name) {
+    this.activeSounds.delete(name);
+    this.fadeOut(name);
+    this.reportState();
+  }
+
+  async ensureSound(name) {
+    await this.init();
+    if (this.activeSounds.has(name)) {
+      this.reportState();
+      return;
+    }
+    try {
+      const buffer = await this.loadBuffer(name);
+      this.startSound(name, this.mood, buffer);
+    } catch (_) {}
+  }
+
+  async toggleSound(name) {
+    await this.init();
+    if (this.activeSounds.has(name)) {
+      this.stopSound(name);
+    } else {
+      try {
+        const buffer = await this.loadBuffer(name);
+        this.startSound(name, this.mood, buffer);
+      } catch (_) {}
+    }
+  }
+
+  async setMood(mood) {
+    this.mood = mood;
+    await this.init();
+    const active = Array.from(this.activeSounds);
+    for (const name of active) {
+      this.fadeOut(name);
+    }
+    setTimeout(() => {
+      for (const name of active) {
+        if (this.activeSounds.has(name)) {
+          this.loadBuffer(name).then(buffer => {
+            if (this.activeSounds.has(name)) {
+              this.startSound(name, this.mood, buffer);
+            }
+          }).catch(() => {});
+        }
+      }
+      this.reportState();
+    }, FADE_OUT * 500);
+    this.reportState();
+  }
+
+  async reset() {
+    await this.init();
+    const active = Array.from(this.activeSounds);
+    for (const name of active) {
+      this.fadeOut(name);
+    }
+    this.activeSounds.clear();
+    this.nodes = {};
+    this.reportState();
+  }
+
+  async primeAudio() {
+    try {
+      await this.init();
+      postBridgeMessage({
+        type: "state",
+        activeSources: Array.from(this.activeSounds),
+        mood: this.mood,
+        statusText: this.activeSounds.size > 0 ? "Audio ready" : (audioUnlocked ? "Audio primed" : "Tap preview to enable audio")
+      });
+    } catch (error) {
+      postBridgeMessage({
+        type: "error",
+        message: error && error.message ? error.message : "Audio init failed"
+      });
+    }
+  }
+
+  reportState() {
+    const names = Array.from(this.activeSounds).map(name => SOURCE_STATUS[name] || name);
+    const statusText = names.length > 0 ? `${names.join(" + ")} playing` : "No sources active";
+    updateStatusUI(this.mood, this.activeSounds, statusText);
+    postBridgeMessage({
+      type: "state",
+      activeSources: Array.from(this.activeSounds),
+      mood: this.mood,
+      statusText
+    });
+  }
 }
 
-renderUI();
-syncUI();
-scopeLoop();
+const engine = new SoundEngine();
+const dot = document.getElementById("dot");
+const statusTextNode = document.getElementById("status-text");
+const filterInfo = document.getElementById("filter-info");
+const moodName = document.getElementById("mood-name");
+const canvas = document.getElementById("viz");
+const ctx2d = canvas.getContext("2d");
+const unlockNode = document.getElementById("unlock");
+
+let audioUnlocked = false;
+let unlockAttemptInFlight = false;
+let silentUnlockAudio = null;
 
 function postBridgeMessage(payload) {
   if (
@@ -1175,114 +506,184 @@ function postBridgeMessage(payload) {
   }
 }
 
-function reportNativeState() {
-  postBridgeMessage({
-    type: 'state',
-    activeSources: Array.from(state.selected),
-    mood: state.mood,
-    statusText: state.selected.size > 0
-      ? `${Array.from(state.selected).map(id => SOURCES.find(source => source.id === id)?.name || id).join(' + ')} playing`
-      : 'No sources active'
-  });
+function updateStatusUI(mood, activeSet, statusText) {
+  dot.className = activeSet.size > 0 ? "status-dot playing" : "status-dot";
+  statusTextNode.textContent = statusText;
+  filterInfo.className = `filter-info ${FILTER_CLASSES[mood] || "neutral"}`;
+  filterInfo.innerHTML = `Filter ${DSP_BADGES[mood] || DSP_BADGES.neutral}`;
+  moodName.textContent = MOOD_TITLES[mood] || MOOD_TITLES.neutral;
+  moodName.style.color = MOOD_COLORS[mood] || MOOD_COLORS.neutral;
+  unlockNode.classList.toggle("hidden", audioUnlocked);
 }
 
-function reportNativeError(error) {
-  postBridgeMessage({
-    type: 'error',
-    message: error && error.message ? error.message : 'Soundscape engine error'
-  });
+function computedStatusText() {
+  if (engine.activeSounds.size > 0) {
+    return `${Array.from(engine.activeSounds).map(name => SOURCE_STATUS[name] || name).join(" + ")} playing`;
+  }
+  return audioUnlocked ? "No sources active" : "Tap preview to enable audio";
 }
 
-function sourceIdForNativeGesture(label) {
-  const map = {
-    leaf: 'leaf',
-    tree: 'tree',
-    bird: 'bird',
-    ocean: 'wave',
-    river: 'fish',
-    rain: 'cloud',
-    leaves: 'leaf',
-    forest: 'tree',
-    birds: 'bird',
-    wave: 'wave',
-    fish: 'fish',
-    cloud: 'cloud'
-  };
-  return map[label] || label;
+function ensureSilentUnlockAudio() {
+  if (silentUnlockAudio) {
+    return silentUnlockAudio;
+  }
+  silentUnlockAudio = document.createElement("audio");
+  silentUnlockAudio.setAttribute("playsinline", "true");
+  silentUnlockAudio.preload = "auto";
+  silentUnlockAudio.src = "data:audio/mp4;base64,AAAAHGZ0eXBpc29tAAAAAGlzb21pc28yYXA0MQAAAD1tb292AAAAbG12aGQAAAAAAAAAAAAAAAAAAAPoAAAD6AABAAABAAAAAAAAAAAAAAAAAQAAAAAAAAAAAAAAAAAAAAEAAAAAAAAAAAAAAAAAAEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACAAACxHRyYWsAAABcdGtoZAAAAAMAAAAAAAAAAAAAAAABAAAAAAAAA+gAAAAAAAAAAAAAAAAAAAAAAAEAAAAAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAABAAAAAAAABAAAAAAAkZWR0cwAAABxlbHN0AAAAAAAAAAEAAAPoAAAQAAABAAAAAAJtbWRpYQAAACBtZGhkAAAAAAAAAAAAAAAAAAAyAAAAMgBVxAAAAAAALWhkbHIAAAAAAAAAAHNvdW4AAAAAAAAAAAAAAABTb3VuZEhhbmRsZXIAAAACc21pbmYAAAAUc21oZAAAAAAAAAAAAAAAABRkaW5mAAAAHGRyZWYAAAAAAAAAAQAAAAx1cmwgAAAAAQAAAjRzdGJsAAAArHN0c2QAAAAAAAAAAQAAAJxtcDRhAAAAAAAAAAEAAAAAAAAAAAABAAIAQAAAAAAAMgAAAAAAACRlc2RzAAAAAAMgAICAgAAAAAEHCAgIAQACAAgIAAAAFQYH//8VCAgIAAAAAAABAAABAAACxwAAAbJzdHRzAAAAAAAAAAEAAAABAAIAMHN0c2MAAAAAAAAAAQAAAAEAAAABAAAAAXN0c3oAAAAAAAAAAAAAAAEAAAAUc3RjbwAAAAAAAAABAAAArAAAABRidWR0YQAAAFptZXRhAAAAAAAAACFoZGxyAAAAAAAAAABtZGlyYXBwbAAAAAAAAAAAAAAAAC1pbHN0AAAAJal0b28AAAAdZGF0YQAAAAEAAAAATGF2ZjU4LjQ1LjEwMA==";
+  return silentUnlockAudio;
 }
 
-function moodIdForNativeMood(mood) {
-  const map = {
-    happy: 'bright',
-    neutral: 'restored',
-    sad: 'dusk',
-    calm: 'calm',
-    bright: 'bright',
-    restored: 'restored',
-    dusk: 'dusk'
-  };
-  return map[mood] || 'restored';
+async function unlockAudio() {
+  if (audioUnlocked || unlockAttemptInFlight) {
+    return;
+  }
+  unlockAttemptInFlight = true;
+  try {
+    await engine.init();
+    const audio = ensureSilentUnlockAudio();
+    try {
+      audio.currentTime = 0;
+    } catch (_) {}
+    try {
+      await audio.play();
+      audio.pause();
+    } catch (_) {}
+    if (engine.ctx && engine.ctx.state === "suspended") {
+      await engine.ctx.resume();
+    }
+    audioUnlocked = !!(engine.ctx && engine.ctx.state === "running");
+    engine.reportState();
+  } catch (error) {
+    postBridgeMessage({
+      type: "error",
+      message: error && error.message ? error.message : "Audio unlock failed"
+    });
+  } finally {
+    unlockAttemptInFlight = false;
+    updateStatusUI(engine.mood, engine.activeSounds, computedStatusText());
+  }
+}
+
+function resizeCanvas() {
+  const width = canvas.offsetWidth;
+  const height = canvas.offsetHeight;
+  canvas.width = width * window.devicePixelRatio;
+  canvas.height = height * window.devicePixelRatio;
+  ctx2d.setTransform(window.devicePixelRatio, 0, 0, window.devicePixelRatio, 0, 0);
+}
+
+function drawIdle() {
+  const width = canvas.offsetWidth;
+  const height = canvas.offsetHeight;
+  ctx2d.clearRect(0, 0, width, height);
+  ctx2d.strokeStyle = MOOD_COLORS[engine.mood] || MOOD_COLORS.neutral;
+  ctx2d.globalAlpha = 0.25;
+  ctx2d.lineWidth = 1.5;
+  ctx2d.beginPath();
+  const amp = 6;
+  const freq = 0.012;
+  const time = Date.now() * 0.0008;
+  for (let x = 0; x <= width; x++) {
+    const y =
+      height / 2 +
+      amp * Math.sin(x * freq + time) +
+      (amp * 0.4) * Math.sin(x * freq * 2.3 + time * 1.7);
+    if (x === 0) {
+      ctx2d.moveTo(x, y);
+    } else {
+      ctx2d.lineTo(x, y);
+    }
+  }
+  ctx2d.stroke();
+  ctx2d.globalAlpha = 1;
+}
+
+function drawActive(data) {
+  const width = canvas.offsetWidth;
+  const height = canvas.offsetHeight;
+  ctx2d.clearRect(0, 0, width, height);
+  const color = MOOD_COLORS[engine.mood] || MOOD_COLORS.neutral;
+  const sliceWidth = width / data.length;
+
+  ctx2d.beginPath();
+  ctx2d.moveTo(0, height);
+  for (let i = 0; i < data.length; i++) {
+    const value = data[i] / 128.0;
+    const y = value * height / 2;
+    ctx2d.lineTo(i * sliceWidth, y);
+  }
+  ctx2d.lineTo(width, height);
+  ctx2d.closePath();
+
+  const gradient = ctx2d.createLinearGradient(0, 0, 0, height);
+  gradient.addColorStop(0, `${color}55`);
+  gradient.addColorStop(1, `${color}08`);
+  ctx2d.fillStyle = gradient;
+  ctx2d.fill();
+
+  ctx2d.beginPath();
+  ctx2d.lineWidth = 1.5;
+  ctx2d.strokeStyle = color;
+  for (let i = 0; i < data.length; i++) {
+    const value = data[i] / 128.0;
+    const y = value * height / 2;
+    if (i === 0) {
+      ctx2d.moveTo(0, y);
+    } else {
+      ctx2d.lineTo(i * sliceWidth, y);
+    }
+  }
+  ctx2d.stroke();
+}
+
+function vizLoop() {
+  requestAnimationFrame(vizLoop);
+  if (engine.analyser && engine.activeSounds.size > 0) {
+    const data = new Uint8Array(engine.analyser.frequencyBinCount);
+    engine.analyser.getByteTimeDomainData(data);
+    drawActive(data);
+  } else {
+    drawIdle();
+  }
 }
 
 window.g2a = {
   notifyReady() {
-    postBridgeMessage({ type: 'ready' });
-    reportNativeState();
+    updateStatusUI("neutral", new Set(), computedStatusText());
+    postBridgeMessage({ type: "ready" });
   },
   primeAudio() {
-    engine.ensure().then(reportNativeState).catch(reportNativeError);
+    engine.primeAudio();
   },
   setMood(mood) {
-    state.mood = moodIdForNativeMood(mood);
-    engine.applyMood();
-    syncUI();
-    reportNativeState();
+    engine.setMood(mood);
   },
-  async ensureSound(label) {
-    const id = sourceIdForNativeGesture(label);
-    try {
-      await engine.ensure();
-      if (!state.selected.has(id)) {
-        state.selected.add(id);
-        await engine.startSource(id);
-      }
-      state.playing = state.selected.size > 0;
-      syncUI();
-      reportNativeState();
-    } catch (error) {
-      state.selected.delete(id);
-      syncUI();
-      reportNativeError(error);
-    }
+  ensureSound(name) {
+    engine.ensureSound(name);
   },
-  async toggleSound(label) {
-    const id = sourceIdForNativeGesture(label);
-    try {
-      await engine.ensure();
-      if (state.selected.has(id)) {
-        state.selected.delete(id);
-        engine.stopSource(id);
-      } else {
-        state.selected.add(id);
-        await engine.startSource(id);
-      }
-      state.playing = state.selected.size > 0;
-      syncUI();
-      reportNativeState();
-    } catch (error) {
-      reportNativeError(error);
-    }
+  toggleSound(name) {
+    engine.toggleSound(name);
   },
   reset() {
-    if (engine.ctx) {
-      engine.pauseAll();
-    }
-    state.selected.clear();
-    state.playing = false;
-    syncUI();
-    reportNativeState();
+    engine.reset();
   }
 };
+
+resizeCanvas();
+window.addEventListener("resize", resizeCanvas);
+["touchstart", "pointerdown", "click"].forEach(eventName => {
+  unlockNode.addEventListener(eventName, () => {
+    unlockAudio().catch(() => {});
+  }, { passive: true });
+  document.addEventListener(eventName, () => {
+    if (!audioUnlocked) {
+      unlockAudio().catch(() => {});
+    }
+  }, { passive: true });
+});
+updateStatusUI("neutral", new Set(), computedStatusText());
+vizLoop();
 </script>
 </body>
 </html>

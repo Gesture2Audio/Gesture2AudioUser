@@ -76,13 +76,13 @@ final class SoundscapeWebController: NSObject, ObservableObject {
                 return "Rustling leaves"
             case "tree":
                 return "Forest sound"
-            case "bird":
+            case "birds":
                 return "Bird chirps"
-            case "wave":
+            case "ocean":
                 return "Ocean waves"
-            case "fish":
+            case "river":
                 return "River sound"
-            case "cloud":
+            case "rain":
                 return "Rain sound"
             default:
                 return $0.capitalized
@@ -129,7 +129,7 @@ final class SoundscapeWebController: NSObject, ObservableObject {
         case "tree":
             run(script: "window.g2a && window.g2a.ensureSound('tree');")
         case "bird":
-            run(script: "window.g2a && window.g2a.ensureSound('bird');")
+            run(script: "window.g2a && window.g2a.ensureSound('birds');")
         case "ocean":
             run(script: "window.g2a && window.g2a.ensureSound('ocean');")
         case "river":
@@ -223,10 +223,6 @@ final class BundleAudioSchemeHandler: NSObject, WKURLSchemeHandler {
             switch resourceExtension.lowercased() {
             case "wav":
                 mimeType = "audio/wav"
-            case "mp3":
-                mimeType = "audio/mpeg"
-            case "ogg":
-                mimeType = "audio/ogg"
             case "html":
                 mimeType = "text/html; charset=utf-8"
             case "js":
@@ -277,10 +273,14 @@ struct SoundscapeWebView: UIViewRepresentable {
         webView.isOpaque = false
         webView.backgroundColor = .clear
         webView.scrollView.backgroundColor = .clear
-        webView.scrollView.isScrollEnabled = true
+        webView.scrollView.isScrollEnabled = false
         webView.navigationDelegate = context.coordinator
         controller.attach(webView: webView)
 
+        controller.configureAssetURLs(
+            birds: URL(string: "g2audio://app/audio/birds.wav")!,
+            river: URL(string: "g2audio://app/audio/river.wav")!
+        )
         webView.load(URLRequest(url: URL(string: "g2audio://app/soundscape_embed.html")!))
 
         return webView

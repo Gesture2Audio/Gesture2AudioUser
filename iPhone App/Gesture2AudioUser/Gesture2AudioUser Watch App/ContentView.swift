@@ -109,78 +109,22 @@ struct ContentView: View {
     var body: some View {
         GeometryReader { proxy in
             ScrollView {
-                VStack(alignment: .leading, spacing: 10) {
-                    Text("Data Capture")
-                        .font(.headline)
-
-                    Text("Label")
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
-                    Picker("Label", selection: $imu.selectedLabel) {
-                        ForEach(CollectionLabel.allCases) { label in
-                            Text(label.rawValue.capitalized).tag(label)
-                        }
-                    }
-                    .pickerStyle(.navigationLink)
-
-                    Text("Day")
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
-                    Picker("Day", selection: $imu.selectedDay) {
-                        Text("Day 1").tag(1)
-                        Text("Day 2").tag(2)
-                    }
-                    .pickerStyle(.navigationLink)
-
-                    Text("Source: \(imu.selectedLabel.sourceGesture)")
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
-                    Text("Sound: \(imu.selectedLabel.soundHint)")
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
-
-                    HStack(spacing: 8) {
-                        Circle()
-                            .fill(imu.shakeDetected ? Color.green : Color.orange)
-                            .frame(width: 10, height: 10)
-                        Text(imu.shakeDetected ? "Shake detected" : "Waiting for shake")
-                            .font(.footnote)
-                            .fontWeight(.semibold)
-                    }
-
-                    Text("State: \(imu.captureStateText)")
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
-
-                    Text(String(format: "%.1fs", imu.captureRemainingSeconds))
-                        .font(.system(size: 32, weight: .bold, design: .rounded))
-                        .frame(maxWidth: .infinity, alignment: .center)
-
-                    ProgressView(value: imu.captureProgress)
-
-                    HStack {
-                        Text("Shakes: \(imu.shakeCount)")
-                        Spacer()
-                        Text("Saved: \(imu.savedCount)")
-                    }
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
-
-                    Text("Phone: \(imu.phoneLinkStatus)")
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
-
-                    if let statusMessage = imu.statusMessage {
-                        Text(statusMessage)
-                            .font(.caption2)
-                            .foregroundStyle(.red)
-                            .lineLimit(2)
-                    }
+                VStack(alignment: .leading, spacing: 12) {
+                    header
+                    captureDial
+                    statusPanel
                 }
                 .frame(maxWidth: .infinity, minHeight: proxy.size.height, alignment: .topLeading)
                 .padding(12)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background(
+                LinearGradient(
+                    colors: [Color.black, Color(red: 0.04, green: 0.08, blue: 0.10)],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
+            )
         }
         .onAppear {
             imu.start()
@@ -201,10 +145,202 @@ struct ContentView: View {
             }
         }
     }
+
+    private var header: some View {
+        HStack(alignment: .center, spacing: 8) {
+            Image(systemName: "waveform.path.ecg")
+                .font(.system(size: 18, weight: .semibold))
+                .foregroundStyle(.teal)
+                .frame(width: 28, height: 28)
+                .background(Color.white.opacity(0.08), in: Circle())
+
+            VStack(alignment: .leading, spacing: 1) {
+                Text("Gesture2Audio")
+                    .font(.headline)
+                Text("Shake, draw, listen")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
+
+            Spacer(minLength: 4)
+
+            ConnectionPill(isReachable: imu.phoneLinkStatus == "reachable")
+        }
+    }
+
+    private var captureDial: some View {
+        VStack(spacing: 10) {
+            ZStack {
+                Circle()
+                    .stroke(Color.white.opacity(0.10), lineWidth: 10)
+
+                Circle()
+                    .trim(from: 0, to: max(0.02, imu.captureProgress))
+                    .stroke(
+                        captureColor,
+                        style: StrokeStyle(lineWidth: 10, lineCap: .round)
+                    )
+                    .rotationEffect(.degrees(-90))
+                    .animation(.easeOut(duration: 0.15), value: imu.captureProgress)
+
+                VStack(spacing: 2) {
+                    Image(systemName: captureIcon)
+                        .font(.system(size: 22, weight: .semibold))
+                        .foregroundStyle(captureColor)
+                    Text(timerText)
+                        .font(.system(size: 34, weight: .bold, design: .rounded))
+                        .monospacedDigit()
+                    Text(captureInstruction)
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.center)
+                        .lineLimit(2)
+                }
+                .padding(.horizontal, 14)
+            }
+            .frame(maxWidth: .infinity)
+            .aspectRatio(1, contentMode: .fit)
+
+            Text(imu.shakeDetected ? "Shake detected" : imu.captureStateText)
+                .font(.footnote)
+                .fontWeight(.semibold)
+                .foregroundStyle(captureColor)
+                .frame(maxWidth: .infinity, alignment: .center)
+        }
+        .padding(12)
+        .background(Color.white.opacity(0.06), in: RoundedRectangle(cornerRadius: 8))
+        .overlay(
+            RoundedRectangle(cornerRadius: 8)
+                .stroke(Color.white.opacity(0.08), lineWidth: 1)
+        )
+    }
+
+    private var statusPanel: some View {
+        VStack(spacing: 8) {
+            MetricRow(
+                icon: "bolt.fill",
+                title: "Shake trigger",
+                value: "\(imu.shakeCount)"
+            )
+            MetricRow(
+                icon: "iphone",
+                title: "Sent to phone",
+                value: "\(imu.savedCount)"
+            )
+            MetricRow(
+                icon: "timer",
+                title: "Capture window",
+                value: "3.0s"
+            )
+
+            if let statusMessage = imu.statusMessage {
+                HStack(alignment: .top, spacing: 6) {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .foregroundStyle(.orange)
+                    Text(statusMessage)
+                        .font(.caption2)
+                        .foregroundStyle(.orange)
+                        .lineLimit(3)
+                    Spacer(minLength: 0)
+                }
+                .padding(.top, 2)
+            }
+        }
+        .font(.caption2)
+        .padding(10)
+        .background(Color.white.opacity(0.05), in: RoundedRectangle(cornerRadius: 8))
+    }
+
+    private var timerText: String {
+        if imu.captureRemainingSeconds > 0 {
+            return String(format: "%.1f", imu.captureRemainingSeconds)
+        }
+        return "3.0"
+    }
+
+    private var captureInstruction: String {
+        switch imu.captureStateText {
+        case "Capturing":
+            return "Draw in the air"
+        case let state where state.hasPrefix("Saved"):
+            return "Gesture sent"
+        case "Saving...":
+            return "Sending"
+        default:
+            return "Quick shake to start"
+        }
+    }
+
+    private var captureIcon: String {
+        switch imu.captureStateText {
+        case "Capturing":
+            return "scribble.variable"
+        case let state where state.hasPrefix("Saved"):
+            return "checkmark"
+        case "Saving...":
+            return "arrow.up"
+        default:
+            return "hand.raised.fill"
+        }
+    }
+
+    private var captureColor: Color {
+        if imu.captureStateText == "Capturing" {
+            return .teal
+        }
+        if imu.captureStateText.hasPrefix("Saved") {
+            return .green
+        }
+        if imu.shakeDetected {
+            return .green
+        }
+        return .orange
+    }
 }
 
 #Preview {
     ContentView()
+}
+
+private struct ConnectionPill: View {
+    let isReachable: Bool
+
+    var body: some View {
+        HStack(spacing: 4) {
+            Circle()
+                .fill(isReachable ? Color.green : Color.orange)
+                .frame(width: 6, height: 6)
+            Text(isReachable ? "Phone" : "Offline")
+                .font(.caption2)
+                .fontWeight(.semibold)
+        }
+        .padding(.horizontal, 7)
+        .padding(.vertical, 5)
+        .background(Color.white.opacity(0.08), in: Capsule())
+    }
+}
+
+private struct MetricRow: View {
+    let icon: String
+    let title: String
+    let value: String
+
+    var body: some View {
+        HStack(spacing: 8) {
+            Image(systemName: icon)
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundStyle(.teal)
+                .frame(width: 18, height: 18)
+                .background(Color.white.opacity(0.08), in: Circle())
+            Text(title)
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+            Spacer(minLength: 4)
+            Text(value)
+                .fontWeight(.semibold)
+                .monospacedDigit()
+        }
+    }
 }
 
 final class IMUManager: ObservableObject {
