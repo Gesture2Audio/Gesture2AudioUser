@@ -72,17 +72,17 @@ final class SoundscapeWebController: NSObject, ObservableObject {
     func updateState(activeSources: [String], mood: String?, statusText: String?) {
         activeLayers = activeSources.map {
             switch $0 {
-            case "leaves":
+            case "leaf":
                 return "Rustling leaves"
-            case "forest":
+            case "tree":
                 return "Forest sound"
-            case "birds":
+            case "bird":
                 return "Bird chirps"
-            case "ocean":
+            case "wave":
                 return "Ocean waves"
-            case "river":
+            case "fish":
                 return "River sound"
-            case "rain":
+            case "cloud":
                 return "Rain sound"
             default:
                 return $0.capitalized
@@ -125,11 +125,11 @@ final class SoundscapeWebController: NSObject, ObservableObject {
         clearError()
         switch label {
         case "leaf":
-            run(script: "window.g2a && window.g2a.ensureSound('leaves');")
+            run(script: "window.g2a && window.g2a.ensureSound('leaf');")
         case "tree":
-            run(script: "window.g2a && window.g2a.ensureSound('forest');")
+            run(script: "window.g2a && window.g2a.ensureSound('tree');")
         case "bird":
-            run(script: "window.g2a && window.g2a.ensureSound('birds');")
+            run(script: "window.g2a && window.g2a.ensureSound('bird');")
         case "ocean":
             run(script: "window.g2a && window.g2a.ensureSound('ocean');")
         case "river":
@@ -193,9 +193,14 @@ final class BundleAudioSchemeHandler: NSObject, WKURLSchemeHandler {
         let resourceName = requestURL.deletingPathExtension().lastPathComponent
         let pathExtension = requestURL.pathExtension
         let resourceExtension = pathExtension.isEmpty ? "wav" : pathExtension
+        let subdirectory = requestURL
+            .deletingLastPathComponent()
+            .path
+            .trimmingCharacters(in: CharacterSet(charactersIn: "/"))
 
         guard !resourceName.isEmpty,
-              let resourceURL = Bundle.main.url(forResource: resourceName, withExtension: resourceExtension) else {
+              let resourceURL = Bundle.main.url(forResource: resourceName, withExtension: resourceExtension, subdirectory: subdirectory.isEmpty ? nil : subdirectory)
+                ?? Bundle.main.url(forResource: resourceName, withExtension: resourceExtension) else {
             let response = HTTPURLResponse(
                 url: requestURL,
                 statusCode: 404,
@@ -218,6 +223,10 @@ final class BundleAudioSchemeHandler: NSObject, WKURLSchemeHandler {
             switch resourceExtension.lowercased() {
             case "wav":
                 mimeType = "audio/wav"
+            case "mp3":
+                mimeType = "audio/mpeg"
+            case "ogg":
+                mimeType = "audio/ogg"
             case "html":
                 mimeType = "text/html; charset=utf-8"
             case "js":
@@ -268,14 +277,10 @@ struct SoundscapeWebView: UIViewRepresentable {
         webView.isOpaque = false
         webView.backgroundColor = .clear
         webView.scrollView.backgroundColor = .clear
-        webView.scrollView.isScrollEnabled = false
+        webView.scrollView.isScrollEnabled = true
         webView.navigationDelegate = context.coordinator
         controller.attach(webView: webView)
 
-        controller.configureAssetURLs(
-            birds: URL(string: "g2audio://app/birds.wav")!,
-            river: URL(string: "g2audio://app/river.wav")!
-        )
         webView.load(URLRequest(url: URL(string: "g2audio://app/soundscape_embed.html")!))
 
         return webView

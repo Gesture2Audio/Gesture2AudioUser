@@ -1,0 +1,72 @@
+{
+  "project": "GreenAR-inspired browser soundscape generator",
+  "method": [
+    "Compose a soundscape from user-selected natural sound objects.",
+    "Treat each selected object as a small cluster of spatialized voices rather than one static loop.",
+    "Randomize loop start, playback rate, gain, stereo/panner position, filter frequency, and event timing to avoid repetition.",
+    "Apply mood as a master mix layer that changes density, brightness, tempo, reverb, and per-source balance.",
+    "Measure each decoded web recording and apply automatic loudness normalization so quiet chirps and louder water beds sit in the same mix.",
+    "Load a 50-sample web-derived pool per icon and randomly choose from that pool whenever a source is activated."
+  ],
+  "sampleLibrary": {
+    "file": "data/sample-library.json",
+    "provider": "Openverse audio search over Freesound previews",
+    "samplesPerCategory": 50
+  },
+  "sources": [
+    {
+      "id": "leaf",
+      "icon": "leaf",
+      "label": "Leaf",
+      "mappedSound": "rustling leaves",
+      "samplePool": "leaf",
+      "sampleCount": 50,
+      "origin": "Openverse sample pool generated from the query 'tree leaves rustling'"
+    },
+    {
+      "id": "wave",
+      "icon": "wave",
+      "label": "Wave",
+      "mappedSound": "ocean sound",
+      "samplePool": "wave",
+      "sampleCount": 50,
+      "origin": "Openverse sample pool generated from the query 'ocean waves'"
+    },
+    {
+      "id": "tree",
+      "icon": "tree",
+      "label": "Tree",
+      "mappedSound": "forest sound",
+      "samplePool": "tree",
+      "sampleCount": 50,
+      "origin": "Openverse sample pool generated from the query 'forest ambience'"
+    },
+    {
+      "id": "fish",
+      "icon": "fish",
+      "label": "Fish",
+      "mappedSound": "river flowing sound",
+      "samplePool": "fish",
+      "sampleCount": 50,
+      "origin": "Openverse sample pool generated from the query 'river stream'"
+    },
+    {
+      "id": "cloud",
+      "icon": "cloud",
+      "label": "Cloud",
+      "mappedSound": "rain sound",
+      "samplePool": "cloud",
+      "sampleCount": 50,
+      "origin": "Openverse sample pool generated from the query 'rain ambience'"
+    },
+    {
+      "id": "bird",
+      "icon": "bird",
+      "label": "Bird",
+      "mappedSound": "bird chirps",
+      "samplePool": "bird",
+      "sampleCount": 50,
+      "origin": "Openverse sample pool generated from the query 'birdsong'"
+    }
+  ]
+}

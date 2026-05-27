@@ -161,7 +161,7 @@ struct ContentView: View {
             VStack(alignment: .leading, spacing: 14) {
                 sectionTitle("HTML Engine", icon: "waveform.and.magnifyingglass")
                 SoundscapeWebView(controller: session.soundscape)
-                    .frame(minHeight: 220, maxHeight: 220)
+                    .frame(minHeight: 640)
                     .clipShape(RoundedRectangle(cornerRadius: 8))
             }
         }

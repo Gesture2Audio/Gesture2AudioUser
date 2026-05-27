@@ -41,4 +41,4 @@ Current live audio path:
 - Apple Watch capture -> iPhone classification -> embedded HTML sound engine in `WKWebView`
 - `happy / neutral / sad` mood buttons drive the HTML DSP chain
 - six supported gestures are `leaf`, `tree`, `bird`, `ocean`, `river`, and `rain`
-- bundled bird and river WAV assets are served to the page through a custom `g2audio://` URL-scheme handler; leaf, tree, ocean, and rain layers are generated inside the HTML engine for the six-gesture demo
+- the embedded engine is based on `Gesture2Audio/G2A_Soundscape`'s `soundscape-generator`, with sample-pool metadata, local bundled soundscape data, and gesture-triggered source activation through the native bridge

@@ -150,3 +150,11 @@ Format:
 - Files: `scripts/export_six_gesture_ios_model.py`, `iPhone App/Gesture2AudioUser/Gesture2AudioUser/six_gesture_model.json`, `iPhone App/Gesture2AudioUser/Gesture2AudioUser/GesturePipeline.swift`, `iPhone App/Gesture2AudioUser/Gesture2AudioUser/ContentView.swift`, `iPhone App/Gesture2AudioUser/Gesture2AudioUser/SoundscapeWebController.swift`, `iPhone App/Gesture2AudioUser/Gesture2AudioUser/soundscape_embed.html`, `docs/IPHONE_PIPELINE.md`, `README.md`, `docs/CHANGELOG.md`.
 - Validation: Verified the exported JSON has `652` scaler features, `200` selected feature indices, six coefficient rows, and six intercepts. Recomputed predictions from the exported JSON in Python and confirmed they match the sklearn pipeline for sampled records.
 - Notes: Bird and river still use the bundled WAV assets. Leaf, tree, ocean, and rain use generated HTML-engine layers for the demo until final sound files are added.
+
+## 2026-05-27 - Replace App Soundscape With G2A Soundscape Generator
+
+- Changed: Pulled the latest `Gesture2Audio/G2A_Soundscape` repo and replaced the app's embedded soundscape page with the new `soundscape-generator` HTML, sample metadata, and bundled audio pool files. Updated the Swift bridge so gesture labels activate the generator's source IDs.
+- Reason: The app should use the newer sound profiles and soundscape behavior from the dedicated soundscape repo instead of the earlier custom two-source embed.
+- Files: `iPhone App/Gesture2AudioUser/Gesture2AudioUser/soundscape_embed.html`, `iPhone App/Gesture2AudioUser/Gesture2AudioUser/data/sample-library.json`, `iPhone App/Gesture2AudioUser/Gesture2AudioUser/data/sources.json`, `iPhone App/Gesture2AudioUser/Gesture2AudioUser/audio/pools/leaf/*.mp3`, `iPhone App/Gesture2AudioUser/Gesture2AudioUser/SoundscapeWebController.swift`, `iPhone App/Gesture2AudioUser/Gesture2AudioUser/ContentView.swift`, `README.md`, `docs/IPHONE_PIPELINE.md`, `docs/CHANGELOG.md`.
+- Validation: Confirmed the copied soundscape metadata contains six categories with 50 samples each and added native bridge functions for `primeAudio`, `setMood`, `ensureSound`, `toggleSound`, and `reset`.
+- Notes: Native labels still remain `leaf`, `tree`, `bird`, `ocean`, `river`, and `rain`; the bridge maps them to the generator IDs `leaf`, `tree`, `bird`, `wave`, `fish`, and `cloud`.

@@ -17,8 +17,8 @@ iPhone App/Gesture2AudioUser/Gesture2AudioUser.xcodeproj
 5. The watch transfers the captured IMU sequence to the phone.
 6. The iPhone extracts the same 652 IMU features used in the notebook.
 7. The iPhone scales those features, keeps the selected 200 features, and runs the six-class logistic-regression model.
-8. The detected gesture is sent to the embedded HTML sound engine.
-9. The HTML engine adds the matching layer without stopping the existing layers.
+8. The detected gesture is sent to the embedded `G2A_Soundscape` HTML generator.
+9. The HTML generator adds the matching source layer without stopping the existing layers.
 10. The user can switch `happy`, `neutral`, and `sad` manually; the selected mood immediately changes the active audio processing chain.
 
 ## Gestures And Layers
@@ -39,17 +39,18 @@ The user-facing gesture names are shown as Leaf, Tree, Bird, Wave, Fish, and Clo
 - Apple Watch IMU capture at 50 Hz.
 - Shake-triggered 3-second gesture window.
 - Phone-side six-gesture classification after each transferred capture.
-- Embedded HTML/JavaScript sound engine inside the iPhone app through `WKWebView`.
+- Embedded `G2A_Soundscape` HTML/JavaScript generator inside the iPhone app through `WKWebView`.
 - Additive audio layers for all six detected gestures.
 - Default transient processing on the phone:
   - classify immediately
   - do not persist raw captures
 - Optional research save mode on the phone for debugging and later analysis.
 - Native mood buttons that drive the HTML sound-characteristics logic.
-- Bundled WAV files for the two collected prototype sounds:
-  - `audio/birds.wav`
-  - `audio/river.wav`
-- Generated HTML-engine layers for leaves, forest, ocean, and rain until final audio assets are added.
+- Bundled soundscape metadata and source pools from `Gesture2Audio/G2A_Soundscape`:
+  - `data/sample-library.json`
+  - `data/sources.json`
+  - `audio/pools/leaf/*.mp3`
+- Web-derived sample pools are used by the generator for the full six-source soundscape.
 
 ## Model
 
@@ -122,4 +123,4 @@ The random-holdout result is the expected known-user/calibrated-user demo behavi
 
 This app classifies after each 3-second transferred capture reaches the phone. It is not continuous rolling-window classification yet.
 
-The six-class model is now integrated for the app demo, but unseen-user generalization is still weak. For a strong final research claim, the next step is cleaner multi-participant data collection with stricter gesture timing and more repeated samples per gesture.
+The six-class model is now integrated for the app demo, but unseen-user generalization is still weak. The soundscape engine now uses the newer `G2A_Soundscape` generator, while the native app still controls it through gesture events and mood buttons.
